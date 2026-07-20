@@ -236,28 +236,18 @@ async function renderHistory() {
     .join("");
 }
 
-// ---------- Settings ----------
+// ---------- Overlay toggle ----------
 async function loadSettings() {
   const { settings } = await chrome.storage.local.get("settings");
-  const s = settings || { sites: { linkedin: true, indeed: true }, showOverlay: true };
-  document.getElementById("toggle-overlay").checked = s.showOverlay !== false;
-  document.getElementById("toggle-linkedin").checked = s.sites.linkedin !== false;
-  document.getElementById("toggle-indeed").checked = s.sites.indeed !== false;
+  document.getElementById("toggle-overlay").checked = settings?.showOverlay !== false;
 }
 async function saveSettings() {
+  const { settings } = await chrome.storage.local.get("settings");
   await chrome.storage.local.set({
-    settings: {
-      showOverlay: document.getElementById("toggle-overlay").checked,
-      sites: {
-        linkedin: document.getElementById("toggle-linkedin").checked,
-        indeed: document.getElementById("toggle-indeed").checked,
-      },
-    },
+    settings: { ...settings, showOverlay: document.getElementById("toggle-overlay").checked },
   });
 }
 document.getElementById("toggle-overlay").addEventListener("change", saveSettings);
-document.getElementById("toggle-linkedin").addEventListener("change", saveSettings);
-document.getElementById("toggle-indeed").addEventListener("change", saveSettings);
 
 // ---------- Init ----------
 renderResumeList();

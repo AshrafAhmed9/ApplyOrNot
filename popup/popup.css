@@ -18,7 +18,24 @@ body {
 }
 
 .pop-header { padding: 14px 16px 0; background: var(--card); border-bottom: 0.5px solid var(--line); }
-.pop-title { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+.pop-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pop-title { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+
+.overlay-switch { display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+.overlay-switch-label { font-size: 12px; font-weight: 500; color: var(--sub); }
+.overlay-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.overlay-switch .switch-track {
+  position: relative; width: 34px; height: 20px; border-radius: 10px;
+  background: rgba(0, 0, 0, 0.14); transition: background 0.18s ease; flex: 0 0 auto;
+}
+.overlay-switch .switch-thumb {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.18s ease;
+}
+.overlay-switch input:checked + .switch-track { background: #30d158; }
+.overlay-switch input:checked + .switch-track .switch-thumb { transform: translateX(14px); }
+.overlay-switch input:focus-visible + .switch-track { outline: 2px solid rgba(10,132,255,0.5); outline-offset: 2px; }
+
 .pop-tabs { display: flex; gap: 2px; }
 .pop-tab {
   flex: 1; padding: 9px 0; background: none; border: none; font-size: 12.5px; color: var(--sub);
@@ -94,8 +111,6 @@ select:focus, input[type="text"]:focus { outline: 2px solid rgba(10,132,255,0.4)
 .upload-actions { display: flex; gap: 10px; margin-top: 16px; }
 .upload-actions button { flex: 1; }
 .status-line { font-size: 12px; color: var(--sub); margin-top: 8px; min-height: 14px; }
-
-.toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-bottom: 12px; }
 
 .pop-footer {
   padding: 11px 16px; border-top: 0.5px solid var(--line); background: var(--card);

@@ -7,11 +7,17 @@
 </head>
 <body>
   <header class="pop-header">
-    <div class="pop-title">ApplyOrNot</div>
+    <div class="pop-title-row">
+      <div class="pop-title">ApplyOrNot</div>
+      <label class="overlay-switch" title="Show the verdict overlay on job pages">
+        <span class="overlay-switch-label">Overlay</span>
+        <input type="checkbox" id="toggle-overlay" checked />
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label>
+    </div>
     <div class="pop-tabs">
       <button class="pop-tab active" data-tab="resumes">Resumes</button>
       <button class="pop-tab" data-tab="history">History</button>
-      <button class="pop-tab" data-tab="settings">Settings</button>
     </div>
   </header>
 
@@ -55,12 +61,6 @@
 
     <section id="tab-history" class="pop-tab-panel">
       <div id="history-list"></div>
-    </section>
-
-    <section id="tab-settings" class="pop-tab-panel">
-      <label class="toggle-row"><input type="checkbox" id="toggle-overlay" checked /> Show on-page overlay</label>
-      <label class="toggle-row"><input type="checkbox" id="toggle-linkedin" checked /> LinkedIn</label>
-      <label class="toggle-row"><input type="checkbox" id="toggle-indeed" checked /> Indeed</label>
     </section>
   </main>
 

@@ -35,10 +35,10 @@ check("Minimum 5 yrs vs 6-8 target -> PASS",
   ExperienceLib.getExperienceVerdict("Minimum 5 years of experience required in distributed systems.", 6, 8).status === "PASS",
   ExperienceLib.getExperienceVerdict("Minimum 5 years of experience required in distributed systems.", 6, 8));
 
-check("Range '2-4 years' parsed correctly",
-  JSON.stringify(ExperienceLib.extractExperienceYears("Looking for someone with 2-4 years of experience.")) ===
-    JSON.stringify({ min: 2, max: 4, confidence: "hard", raw: "2-4 years", index: ExperienceLib.extractExperienceYears("Looking for someone with 2-4 years of experience.").index }),
-  ExperienceLib.extractExperienceYears("Looking for someone with 2-4 years of experience."));
+(function () {
+  const r = ExperienceLib.extractExperienceYears("Looking for someone with 2-4 years of experience.");
+  check("Range '2-4 years' parsed correctly", r.min === 2 && r.max === 4 && r.confidence === "hard" && r.raw === "2-4 years", r);
+})();
 
 check("Senior-only (no numbers) with fresher target -> FAIL",
   ExperienceLib.getExperienceVerdict("Seeking a Senior Backend Architect to lead our platform team.", 0, 2).status === "FAIL",
@@ -132,6 +132,42 @@ function fakeEmbed(text) {
   const flattened = "Requirements: Python, Java, SQL, REST APIs, Git, Kubernetes, Docker, AWS, CI/CD, Agile";
   const units = MatcherLib.splitIntoUnits(flattened);
   check("Flattened comma-separated requirements split into multiple units (not 1)", units.length > 1, units);
+})();
+
+(function () {
+  // Regression: "About the job" heading + narrative intro must never be scored as
+  // requirements (they can never match anything in a resume, silently tanking every score).
+  const jdText = "About the job\nWe are looking for a passionate and detail-oriented developer to join our team.\n\nResponsibilities\nDevelop and maintain user-facing web applications using Angular\nWrite clean, testable code";
+  const parsed = MatcherLib.parseJDRequirements(jdText, []);
+  const hasFluff = parsed.required.some((u) => /about the job|we are looking for/i.test(u));
+  check("'About the job' / narrative intro excluded from required units", !hasFluff && parsed.required.length === 2, parsed);
+})();
+
+(function () {
+  // Regression: overlapping regex patterns must not misparse "1-2 +years" as "2+ years".
+  const v = ExperienceLib.getExperienceVerdict(
+    "Over 1-2 +years of hands-on experience in backend software development using Typescript, NestJs.",
+    0, 1
+  );
+  check("'1-2 +years' vs 0-1 target -> PASS (not misparsed as 2+)", v.status === "PASS", v);
+})();
+
+(function () {
+  // Regression: company-history boilerplate ("20 years serving clients") must never gate,
+  // and must not be picked over a real requirement elsewhere in the same JD.
+  const v = ExperienceLib.getExperienceVerdict(
+    "With over 20 years of combined experience serving clients worldwide, we are looking for a Software Engineer with 2-4 years of experience in Angular.",
+    2, 3
+  );
+  check("Company-history '20 years' ignored; real '2-4 years' requirement used -> PASS", v.status === "PASS", v);
+})();
+
+(function () {
+  const v = ExperienceLib.getExperienceVerdict(
+    "Founded in 2010, our company has grown into an industry leader with 15+ years of experience serving Fortune 500 clients.",
+    0, 1
+  );
+  check("Pure company-history blurb with no real requirement -> UNKNOWN", v.status === "UNKNOWN", v);
 })();
 
 console.log(`\n${pass} passed, ${fail} failed`);
