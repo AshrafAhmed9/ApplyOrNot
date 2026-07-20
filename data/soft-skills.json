@@ -1,0 +1,18 @@
+{
+  "_comment": "Terms/phrases treated as soft skills: shown to the user as informational context but excluded from the hard-skill coverage score that drives the verdict.",
+  "terms": [
+    "communication", "communication skills", "verbal communication", "written communication",
+    "teamwork", "team player", "collaboration", "collaborative", "cross-functional collaboration",
+    "leadership", "leadership skills", "people management", "mentoring", "mentorship",
+    "problem solving", "problem-solving", "critical thinking", "analytical thinking",
+    "adaptability", "flexibility", "time management", "organization", "organizational skills",
+    "attention to detail", "detail-oriented", "self-motivated", "self-starter", "proactive",
+    "work ethic", "positive attitude", "interpersonal skills", "emotional intelligence",
+    "creativity", "creative thinking", "innovation", "innovative", "initiative",
+    "conflict resolution", "negotiation skills", "presentation skills", "public speaking",
+    "customer service orientation", "stakeholder management", "multitasking",
+    "growth mindset", "ownership", "accountability", "resilience", "empathy",
+    "fast learner", "quick learner", "strong work ethic", "team-oriented", "results-driven",
+    "goal-oriented", "strategic thinking", "decision making", "decision-making"
+  ]
+}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ApplyOrNot</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="pop-header">
+    <div class="pop-title">ApplyOrNot</div>
+    <div class="pop-tabs">
+      <button class="pop-tab active" data-tab="resumes">Resumes</button>
+      <button class="pop-tab" data-tab="history">History</button>
+      <button class="pop-tab" data-tab="settings">Settings</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="tab-resumes" class="pop-tab-panel active">
+      <div id="resume-list"></div>
+
+      <div id="upload-form" class="upload-form" hidden>
+        <label class="field-label">Detected field</label>
+        <select id="domain-select"></select>
+
+        <label class="field-label">Skills detected (edit as needed)</label>
+        <div id="skills-tags" class="tags"></div>
+        <div class="tag-input-row">
+          <input id="new-skill-input" type="text" placeholder="Add a skill…" />
+          <button id="add-skill-btn">Add</button>
+        </div>
+
+        <label class="field-label">Target experience range</label>
+        <div class="slider-row">
+          <span id="range-label">0 – 2 yrs</span>
+        </div>
+        <div class="dual-slider">
+          <input type="range" id="range-min" min="0" max="15" step="1" value="0" />
+          <input type="range" id="range-max" min="0" max="15" step="1" value="2" />
+        </div>
+
+        <label class="field-label">Label (optional)</label>
+        <input id="resume-label-input" type="text" placeholder="e.g. Backend, AI/ML" />
+
+        <div class="upload-actions">
+          <button id="save-resume-btn" class="primary-btn">Save resume</button>
+          <button id="cancel-upload-btn" class="secondary-btn">Cancel</button>
+        </div>
+      </div>
+
+      <button id="upload-resume-btn" class="primary-btn upload-cta">+ Upload Resume</button>
+      <input id="pdf-file-input" type="file" accept="application/pdf" hidden />
+      <div id="upload-status" class="status-line"></div>
+    </section>
+
+    <section id="tab-history" class="pop-tab-panel">
+      <div id="history-list"></div>
+    </section>
+
+    <section id="tab-settings" class="pop-tab-panel">
+      <label class="toggle-row"><input type="checkbox" id="toggle-linkedin" checked /> LinkedIn</label>
+      <label class="toggle-row"><input type="checkbox" id="toggle-indeed" checked /> Indeed</label>
+    </section>
+  </main>
+
+  <footer class="pop-footer">
+    <a href="#" id="rate-link" target="_blank" rel="noopener">⭐ Rate</a>
+    <span class="dot">·</span>
+    <a href="#" id="feedback-link" target="_blank" rel="noopener">💬 Feedback</a>
+  </footer>
+
+  <script src="../lib/pdf.min.js"></script>
+  <script src="../lib/experience.js"></script>
+  <script src="../lib/matcher.js"></script>
+  <script src="../lib/engine.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

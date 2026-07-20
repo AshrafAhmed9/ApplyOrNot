@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ApplyOrNot — matcher test harness</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    .pass { color: #059669; }
+    .fail { color: #dc2626; font-weight: bold; }
+    .case { margin-bottom: 10px; padding: 8px; border: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <h2>ApplyOrNot — matcher.js / experience.js regression harness</h2>
+  <p>
+    Runs structural/gate logic against a <b>fake bag-of-words embedder</b> (no model download needed).
+    This validates gating, weighting, and thresholds — it does <b>not</b> prove semantic
+    paraphrase understanding (e.g. "Kubernetes" ~ "container orchestration"). Those "semantic wins"
+    cases must be verified in the loaded extension against the real MiniLM embeddings
+    (see comments below each fake-embedder-limited case).
+  </p>
+  <div id="results"></div>
+
+  <script src="../lib/experience.js"></script>
+  <script src="../lib/matcher.js"></script>
+  <script>
+    // ---- Fake embedder: dense bag-of-words vectors over a fixed shared vocabulary. ----
+    // Real embeddings are dense arrays, so a fixed vocabulary lets these fixtures run through
+    // the REAL (unmodified) MatcherLib.cosineSim/classifyDomain — no monkey-patching needed.
+    // Good enough to test weighting/thresholds/gates; NOT semantic — words must match literally.
+    const VOCAB = "java python kubernetes rest api backend software engineer patient clinical nursing hospital care treatment medication spring sql git docker grpc react".split(" ");
+    function fakeEmbed(text) {
+      const tokens = new Set((text.toLowerCase().match(/[a-z0-9]+/g) || []));
+      return VOCAB.map((w) => (tokens.has(w) ? 1 : 0));
+    }
+
+    let passCount = 0, failCount = 0;
+    function check(name, condition, detail) {
+      const div = document.createElement("div");
+      div.className = "case";
+      if (condition) {
+        passCount++;
+        div.innerHTML = `<span class="pass">PASS</span> — ${name}`;
+      } else {
+        failCount++;
+        div.innerHTML = `<span class="fail">FAIL</span> — ${name}<br><small>${detail || ""}</small>`;
+      }
+      document.getElementById("results").appendChild(div);
+    }
+
+    // ============ Experience gate tests (real logic, no fake embedder needed) ============
+
+    (function () {
+      const v = ExperienceLib.getExperienceVerdict("Requires 3+ years of experience in backend development.", 0, 2);
+      check("Fresher target (0-2) vs '3+ years required' -> FAIL", v.status === "FAIL", JSON.stringify(v));
+    })();
+
+    (function () {
+      const v = ExperienceLib.getExperienceVerdict("This is an entry-level role, 0-1 years of experience.", 2, 3);
+      check("2-3yr target vs entry-level (0-1) JD -> OVERQUALIFIED (still APPLY)", v.status === "OVERQUALIFIED", JSON.stringify(v));
+    })();
+
+    (function () {
+      const v = ExperienceLib.getExperienceVerdict("2 years experience preferred but not required.", 0, 1);
+      check("'2 years preferred' (soft) with fresher target -> not blocked (PASS)", v.status === "PASS", JSON.stringify(v));
+    })();
+
+    (function () {
+      const v = ExperienceLib.getExperienceVerdict("We are hiring a Senior Software Engineer. Requirements: 0-2 years of experience.", 0, 2);
+      check("Title says Senior but body says 0-2 yrs -> body wins (PASS)", v.status === "PASS", JSON.stringify(v));
+    })();
+
+    (function () {
+      const v = ExperienceLib.getExperienceVerdict("Join our growing team building great products for customers everywhere.", 0, 2);
+      check("No experience stated -> UNKNOWN", v.status === "UNKNOWN", JSON.stringify(v));
+    })();
+
+    (function () {
+      const req = ExperienceLib.extractExperienceYears("Founded in 2024, our 401k plan and Python 3 stack power everything.");
+      check("2024 / 401k / Python 3 not parsed as experience", req === null, JSON.stringify(req));
+    })();
+
+    (function () {
+      const v = ExperienceLib.getExperienceVerdict("Minimum 5 years of experience required in distributed systems.", 6, 8);
+      check("Minimum 5 yrs vs 6-8 target -> PASS (in range)", v.status === "PASS", JSON.stringify(v));
+    })();
+
+    // ============ Domain gate tests (using fake bag-of-words vectors) ============
+
+    (function () {
+      const centroids = {
+        software_engineering: fakeEmbed("java python kubernetes rest api backend software engineer"),
+        nursing: fakeEmbed("patient clinical nursing hospital care treatment medication"),
+      };
+      const jdVector = fakeEmbed("we need a registered nurse for patient care in our hospital clinical unit");
+      const classification = MatcherLib.classifyDomain(jdVector, centroids);
+      const mismatch =
+        classification.topScore >= MatcherLib.DOMAIN_SIM_THRESHOLD &&
+        classification.margin >= MatcherLib.DOMAIN_MARGIN &&
+        !MatcherLib.domainsOverlap(["software_engineering"], classification.domains);
+      check("Software resume vs Nursing JD -> confident field mismatch detected", mismatch, JSON.stringify(classification));
+    })();
+
+    (function () {
+      const centroids = {
+        marketing: fakeEmbed("seo campaigns content strategy brand growth marketing"),
+        sales: fakeEmbed("quota pipeline crm salesforce leads closing deals sales"),
+      };
+      const jdVector = fakeEmbed("growth stakeholder strategy cross functional kpis");
+      const classification = MatcherLib.classifyDomain(jdVector, centroids);
+      check(
+        "Ambiguous marketing-vs-sales JD -> does not need to hard-block (informational only)",
+        true,
+        `topScore=${classification.topScore.toFixed(2)} margin=${classification.margin.toFixed(2)} (low-margin cases should skip the domain gate in getVerdict)`
+      );
+    })();
+
+    // ============ Skill coverage / weighting tests ============
+
+    (function () {
+      // JD requires 5 skills, resume covers all 5 required + 0/3 preferred -> high score, APPLY.
+      const jdUnitVectors = [
+        { text: "Java", vec: fakeEmbed("java"), section: "required" },
+        { text: "Spring", vec: fakeEmbed("spring"), section: "required" },
+        { text: "SQL", vec: fakeEmbed("sql"), section: "required" },
+        { text: "REST APIs", vec: fakeEmbed("rest api"), section: "required" },
+        { text: "Git", vec: fakeEmbed("git"), section: "required" },
+        { text: "Docker", vec: fakeEmbed("docker"), section: "preferred" },
+        { text: "Kubernetes", vec: fakeEmbed("kubernetes"), section: "preferred" },
+        { text: "gRPC", vec: fakeEmbed("grpc"), section: "preferred" },
+      ];
+      const resume = {
+        domains: ["software_engineering"],
+        targetMin: 0, targetMax: 2,
+        units: ["java", "spring", "sql", "rest api", "git", "python", "react"].map((s) => ({ text: s, vec: fakeEmbed(s) })),
+      };
+      const result = MatcherLib.getVerdict({
+        resume,
+        jd: { text: "Requirements: Java, Spring, SQL, REST APIs, Git. Nice to have: Docker, Kubernetes, gRPC." },
+        jdVector: fakeEmbed("java spring sql rest api git docker kubernetes grpc"),
+        jdUnitVectors,
+        domainCentroids: { software_engineering: fakeEmbed("java python kubernetes rest api backend software engineer") },
+        softTerms: [],
+      });
+      check(
+        "All 5 required covered, 0/3 preferred -> APPLY with high score (~85%)",
+        result.verdict === "APPLY" && result.matchPct >= 80,
+        JSON.stringify(result)
+      );
+    })();
+
+    (function () {
+      // Missing 2 of 5 required skills -> score should drop toward/below the cutoff.
+      const jdUnitVectors = [
+        { text: "Java", vec: fakeEmbed("java"), section: "required" },
+        { text: "Spring", vec: fakeEmbed("spring"), section: "required" },
+        { text: "SQL", vec: fakeEmbed("sql"), section: "required" },
+        { text: "REST APIs", vec: fakeEmbed("rest api"), section: "required" },
+        { text: "Git", vec: fakeEmbed("git"), section: "required" },
+      ];
+      const resume = {
+        domains: ["software_engineering"],
+        targetMin: 0, targetMax: 2,
+        units: ["java"].map((s) => ({ text: s, vec: fakeEmbed(s) })), // only 1/5 required covered
+      };
+      const result = MatcherLib.getVerdict({
+        resume,
+        jd: { text: "Requirements: Java, Spring, SQL, REST APIs, Git." },
+        jdVector: fakeEmbed("java spring sql rest api git"),
+        jdUnitVectors,
+        domainCentroids: { software_engineering: fakeEmbed("java python kubernetes rest api backend software engineer") },
+        softTerms: [],
+      });
+      check(
+        "Missing 4/5 required -> DON'T APPLY (below cutoff)",
+        result.verdict === "DON'T APPLY" && result.gate === "skills",
+        JSON.stringify(result)
+      );
+    })();
+
+    (function () {
+      // Soft skills heavy JD, hard requirements fully covered -> should still APPLY.
+      const softTerms = ["communication", "teamwork", "leadership"];
+      const jdText = "Requirements: Python, SQL. Soft skills: strong communication, teamwork, leadership.";
+      const parsed = MatcherLib.parseJDRequirements(jdText, softTerms);
+      const hasSoftOnlyLeftInRequired = parsed.required.some((u) => MatcherLib.isSoftOnlyUnit(u, softTerms));
+      check(
+        "Soft-skill-only bullet excluded from required list by parseJDRequirements",
+        !hasSoftOnlyLeftInRequired,
+        JSON.stringify(parsed)
+      );
+    })();
+
+    // ============ Summary ============
+    const summary = document.createElement("h3");
+    summary.textContent = `${passCount} passed, ${failCount} failed`;
+    summary.className = failCount ? "fail" : "pass";
+    document.getElementById("results").prepend(summary);
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "_comment": "Tier-1 precise selectors per site. 'container' = element(s) holding the full JD text. 'expandButtons' = selectors/aria patterns for 'Read more' toggles to auto-click before scraping.",
+  "sites": {
+    "linkedin": {
+      "hostIncludes": ["linkedin.com"],
+      "container": [".jobs-description__content", ".jobs-box__html-content", "#job-details"],
+      "expandButtons": ["button.jobs-description__footer-button", "button[aria-label*='Click to see more description' i]"]
+    },
+    "indeed": {
+      "hostIncludes": ["indeed.com"],
+      "container": ["#jobDescriptionText"],
+      "expandButtons": []
+    },
+    "greenhouse": {
+      "hostIncludes": ["greenhouse.io"],
+      "container": ["#content", ".job__description", "#app-body"],
+      "expandButtons": []
+    },
+    "lever": {
+      "hostIncludes": ["lever.co"],
+      "container": [".posting-page", ".content"],
+      "expandButtons": []
+    },
+    "workday": {
+      "hostIncludes": ["myworkdayjobs.com"],
+      "container": ["[data-automation-id='jobPostingDescription']"],
+      "expandButtons": ["button[aria-label*='show more' i]", "button[aria-label*='read more' i]"]
+    },
+    "ashby": {
+      "hostIncludes": ["ashbyhq.com"],
+      "container": ["[class*='JobPage_description']", "main"],
+      "expandButtons": []
+    },
+    "icims": {
+      "hostIncludes": ["icims.com"],
+      "container": ["#iCIMS_JobContent", ".iCIMS_JobContent"],
+      "expandButtons": []
+    }
+  },
+  "genericExpandButtonPatterns": [
+    "read more", "see more", "show more", "show full description", "view more", "expand", "...more"
+  ]
+}

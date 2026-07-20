@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "ApplyOrNot — Resume vs JD, Instant Verdict",
+  "short_name": "ApplyOrNot",
+  "version": "0.1.0",
+  "description": "Instantly see whether a job listing is worth applying to, based on your resume — experience gate, field match, and skill coverage, all on-device.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "offscreen", "scripting"],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "*://*.indeed.com/*",
+    "*://*.greenhouse.io/*",
+    "*://*.lever.co/*",
+    "*://*.myworkdayjobs.com/*",
+    "*://*.ashbyhq.com/*",
+    "*://*.icims.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.linkedin.com/jobs/*",
+        "*://*.indeed.com/*",
+        "*://*.greenhouse.io/*",
+        "*://*.lever.co/*",
+        "*://*.myworkdayjobs.com/*",
+        "*://*.ashbyhq.com/*",
+        "*://*.icims.com/*"
+      ],
+      "js": [
+        "lib/readability.min.js",
+        "lib/scraper.js",
+        "lib/experience.js",
+        "lib/matcher.js",
+        "lib/engine.js",
+        "content/content_script.js"
+      ],
+      "css": ["content/badge.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}

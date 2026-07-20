@@ -1,0 +1,75 @@
+{
+  "_comment": "A few representative sentences per field. JD/resume text is classified by nearest-anchor cosine similarity (mean of that domain's anchor embeddings). Add anchors to extend to new fields.",
+  "domains": {
+    "software_engineering": [
+      "Design, build, and maintain backend and frontend software systems using languages like Java, Python, JavaScript, or Go.",
+      "Write clean, tested, production code and ship features across the full stack.",
+      "Experience with REST APIs, databases, version control, and cloud infrastructure such as AWS or Kubernetes."
+    ],
+    "data_ml": [
+      "Build machine learning models and data pipelines using Python, pandas, and TensorFlow or PyTorch.",
+      "Analyze large datasets, train and evaluate predictive models, and deploy them to production.",
+      "Experience with SQL, data warehousing, statistics, and natural language processing."
+    ],
+    "marketing": [
+      "Plan and execute marketing campaigns across SEO, paid ads, email, and social media.",
+      "Own brand strategy, content marketing, and go-to-market planning to drive growth.",
+      "Experience with Google Ads, HubSpot, campaign analytics, and audience segmentation."
+    ],
+    "sales": [
+      "Generate and close new business through outbound prospecting and relationship management.",
+      "Manage a sales pipeline and quota using a CRM such as Salesforce.",
+      "Experience with lead generation, account management, and contract negotiation."
+    ],
+    "finance_accounting": [
+      "Prepare financial statements, reconciliations, and reports in compliance with GAAP.",
+      "Build financial models, forecasts, and budgets for business planning (FP&A).",
+      "Experience with QuickBooks, Excel modeling, audits, and accounts payable/receivable."
+    ],
+    "design_ux": [
+      "Design user interfaces and experiences using Figma, wireframes, and prototypes.",
+      "Conduct user research and usability testing to inform product design decisions.",
+      "Experience with visual design systems, interaction design, and design critique."
+    ],
+    "product_management": [
+      "Own the product roadmap, backlog, and prioritization across engineering and design.",
+      "Define requirements, write PRDs, and run A/B tests to validate product decisions.",
+      "Experience with Jira, stakeholder alignment, and go-to-market coordination for product launches."
+    ],
+    "hr_recruiting": [
+      "Manage recruiting pipelines, interview coordination, and offer negotiation using an ATS.",
+      "Own onboarding, employee relations, payroll, and HR policy compliance.",
+      "Experience with talent acquisition, workforce planning, and performance management."
+    ],
+    "operations_supply_chain": [
+      "Manage supply chain, logistics, and inventory operations to improve efficiency.",
+      "Run process improvement initiatives using Lean or Six Sigma methodology.",
+      "Experience with ERP systems, vendor management, and warehouse operations."
+    ],
+    "customer_support": [
+      "Resolve customer issues via chat, email, and phone using a ticketing system like Zendesk.",
+      "Maintain SLAs and CSAT targets while troubleshooting product problems for customers.",
+      "Experience with help-desk software, escalation handling, and customer success workflows."
+    ],
+    "healthcare_clinical": [
+      "Provide direct patient care, clinical assessments, and treatment planning in a healthcare setting.",
+      "Maintain patient records, administer medications, and follow clinical protocols.",
+      "Experience with EHR systems, nursing or clinical certifications, and patient safety standards."
+    ],
+    "legal": [
+      "Draft, review, and negotiate contracts and legal agreements.",
+      "Conduct legal research and advise on regulatory compliance.",
+      "Experience with litigation support, corporate law, or paralegal case management."
+    ],
+    "education_teaching": [
+      "Plan and deliver curriculum and lesson plans for students in a classroom setting.",
+      "Assess student performance and adapt instruction to learning needs.",
+      "Experience with classroom management, lesson planning, and educational assessment tools."
+    ],
+    "manufacturing_engineering": [
+      "Design, test, and improve mechanical or electrical systems and manufacturing processes.",
+      "Use CAD tools to develop product designs and run quality control checks.",
+      "Experience with manufacturing processes, CAD/CAM, and industrial engineering standards."
+    ]
+  }
+}
