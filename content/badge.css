@@ -90,88 +90,44 @@
 }
 @keyframes aon-spin { to { transform: rotate(360deg); } }
 
-/* APPLY score block */
-#aon-root .aon-score {
-  display: flex; align-items: center; gap: 16px;
-  padding: 16px 16px 6px;
-}
-#aon-root .aon-ring {
-  --pct: 0;
-  width: 66px; height: 66px; flex: 0 0 66px; border-radius: 50%;
-  background: conic-gradient(#30d158 calc(var(--pct) * 1%), rgba(0,0,0,0.08) 0);
-  display: flex; align-items: center; justify-content: center;
-  position: relative;
-}
-#aon-root .aon-ring::before {
-  content: ""; position: absolute; inset: 6px; border-radius: 50%;
-  background: rgba(250, 250, 252, 0.9);
-}
-#aon-root .aon-ring-num { position: relative; font-weight: 600; font-size: 20px; letter-spacing: -0.02em; }
-#aon-root .aon-ring-pct { font-size: 11px; font-weight: 500; color: #86868b; margin-left: 1px; }
-#aon-root .aon-score-side { flex: 1; min-width: 0; }
-
-#aon-root .aon-verdict-row { display: flex; align-items: center; gap: 7px; }
-#aon-root .aon-verdict-word { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
-#aon-root .aon-verdict-reason { font-size: 13px; color: #1d1d1f; }
-#aon-root .aon-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+/* Verdict reason row (shared by APPLY and SKIP) */
+#aon-root .aon-verdict-row { display: flex; align-items: flex-start; gap: 9px; padding: 16px; }
+#aon-root .aon-verdict-reason { font-size: 13.5px; color: #1d1d1f; line-height: 1.45; }
+#aon-root .aon-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; margin-top: 5px; }
 #aon-root .aon-dot-green { background: #30d158; box-shadow: 0 0 0 3px rgba(48,209,88,0.15); }
 #aon-root .aon-dot-red { background: #ff453a; box-shadow: 0 0 0 3px rgba(255,69,58,0.15); }
-#aon-root .aon-meta { color: #86868b; font-size: 12px; margin-top: 3px; }
-#aon-root .aon-meta b { color: #1d1d1f; font-weight: 600; }
 
-#aon-root .aon-fail .aon-verdict-row { padding: 16px; }
-
-#aon-root .aon-note {
-  margin: 4px 16px 0; padding: 8px 11px; font-size: 12px; color: #8a6d00;
-  background: rgba(255, 214, 10, 0.14); border-radius: 10px;
-}
-
-/* Sections + chips */
-#aon-root .aon-section { padding: 12px 16px 2px; }
+/* Sections + chips (used inside the expandable "Why" details) */
 #aon-root .aon-section-title {
   font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
   color: #86868b; margin: 12px 16px 7px;
-  display: flex; align-items: center; gap: 6px;
 }
-#aon-root .aon-section .aon-section-title { margin: 0 0 7px; }
-#aon-root .aon-info-tag {
-  text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 10px;
-  color: #86868b; background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 6px;
-}
+#aon-root .aon-details > .aon-section-title:first-child { margin-top: 0; }
 #aon-root .aon-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px; }
-#aon-root .aon-section .aon-chips { padding: 0; }
 #aon-root .aon-chip {
   font-size: 12px; color: #1d1d1f; background: rgba(0, 0, 0, 0.05);
   border-radius: 8px; padding: 4px 9px; line-height: 1.3;
 }
-#aon-root .aon-allclear { color: #1c8a3e; font-size: 13px; font-weight: 500; }
+#aon-root .aon-chip-warn { background: rgba(255, 149, 10, 0.14); color: #9a5b00; }
 
-/* Details disclosure */
+/* Details disclosure ("Why") */
 #aon-root .aon-details-toggle {
   all: unset; box-sizing: border-box;
   display: flex; align-items: center; justify-content: space-between;
-  width: calc(100% - 32px); margin: 14px 16px 0; padding: 9px 12px;
+  width: calc(100% - 32px); margin: 0 16px 14px; padding: 9px 12px;
   background: rgba(0, 0, 0, 0.04); border-radius: 10px;
   font-size: 12.5px; font-weight: 500; color: #1d1d1f; cursor: pointer;
   transition: background 0.15s ease;
 }
 #aon-root .aon-details-toggle:hover { background: rgba(0, 0, 0, 0.07); }
 #aon-root .aon-details-caret { color: #86868b; transition: transform 0.2s ease; }
-#aon-root .aon-details { display: none; padding: 4px 0 2px; }
+#aon-root .aon-details { display: none; padding-bottom: 14px; }
 #aon-root .aon-details-open .aon-details { display: block; }
 #aon-root .aon-details-open .aon-details-caret { transform: rotate(180deg); }
 
-#aon-root .aon-compare { padding: 0 16px; }
-#aon-root .aon-compare-row {
-  display: flex; justify-content: space-between; font-size: 12.5px;
-  padding: 5px 0; border-bottom: 0.5px solid rgba(0,0,0,0.06);
-}
-#aon-root .aon-compare-row:last-child { border-bottom: none; }
-#aon-root .aon-compare-pct { font-weight: 600; color: #0a84ff; }
-
 /* Footer */
 #aon-root .aon-footer {
-  margin-top: 14px; padding: 11px 16px 13px;
+  padding: 11px 16px 13px;
   border-top: 0.5px solid rgba(0, 0, 0, 0.07);
   font-size: 12px; color: #86868b; display: flex; align-items: center; gap: 8px;
 }
@@ -190,16 +146,12 @@
   #aon-root .aon-top { border-bottom-color: rgba(255,255,255,0.09); }
   #aon-root .aon-chevron:hover, #aon-root .aon-details-toggle:hover { background: rgba(255,255,255,0.08); }
   #aon-root .aon-title, #aon-root .aon-empty-title, #aon-root .aon-verdict-reason,
-  #aon-root .aon-verdict-word, #aon-root .aon-chip, #aon-root .aon-meta b,
-  #aon-root .aon-details-toggle { color: #f5f5f7; }
+  #aon-root .aon-chip, #aon-root .aon-details-toggle { color: #f5f5f7; }
   #aon-root .aon-apply-top .aon-title { color: #30d158; }
   #aon-root .aon-fail-top .aon-title { color: #ff6961; }
-  #aon-root .aon-ring::before { background: rgba(30, 30, 32, 0.92); }
-  #aon-root .aon-ring { background: conic-gradient(#30d158 calc(var(--pct) * 1%), rgba(255,255,255,0.12) 0); }
-  #aon-root .aon-chip, #aon-root .aon-details-toggle { background: rgba(255,255,255,0.09); }
-  #aon-root .aon-info-tag { background: rgba(255,255,255,0.1); }
-  #aon-root .aon-empty-sub, #aon-root .aon-meta, #aon-root .aon-section-title, #aon-root .aon-footer { color: #98989d; }
+  #aon-root .aon-chip { background: rgba(255,255,255,0.09); }
+  #aon-root .aon-chip-warn { background: rgba(255, 159, 10, 0.22); color: #ffd08a; }
+  #aon-root .aon-details-toggle { background: rgba(255,255,255,0.09); }
+  #aon-root .aon-empty-sub, #aon-root .aon-section-title, #aon-root .aon-footer { color: #98989d; }
   #aon-root .aon-footer { border-top-color: rgba(255,255,255,0.09); }
-  #aon-root .aon-compare-row { border-bottom-color: rgba(255,255,255,0.08); }
-  #aon-root .aon-note { color: #ffd60a; background: rgba(255,214,10,0.12); }
 }

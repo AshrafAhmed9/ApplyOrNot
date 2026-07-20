@@ -1,0 +1,23 @@
+name = "applyornot-api"
+main = "index.js"
+compatibility_date = "2025-06-01"
+
+# Bind a KV namespace for per-IP daily rate-limit counters.
+# Create it once with: wrangler kv namespace create RATE_LIMIT
+# then paste the returned id below (and run again with --preview for preview_id).
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "91e912a1a72a441888e0a82fbc595ee6"
+preview_id = "f246dcacfe59482aa6248b66515c71d7"
+
+# Secrets (never committed): set with
+#   wrangler secret put GEMINI_API_KEY
+# Get a free key at https://aistudio.google.com/apikey
+
+[vars]
+# Model id is a var (not secret) so it's easy to swap, e.g. to a Groq model
+# behind the same interface later.
+GEMINI_MODEL = "gemini-2.5-flash"
+# Daily request caps per IP (the "no signup" pressure-release valve).
+DAILY_VERDICT_LIMIT = "60"
+DAILY_PROFILE_LIMIT = "10"

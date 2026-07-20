@@ -18,41 +18,40 @@
   </header>
 
   <main>
-    <section id="tab-resumes">
-      <div id="resume-list"></div>
-
-      <div id="upload-form" class="upload-form" hidden>
-        <label class="field-label">Detected field</label>
-        <select id="domain-select"></select>
-
-        <label class="field-label">Skills detected (edit as needed)</label>
-        <div id="skills-tags" class="tags"></div>
-        <div class="tag-input-row">
-          <input id="new-skill-input" type="text" placeholder="Add a skill…" />
-          <button id="add-skill-btn">Add</button>
+    <section id="profile-section">
+      <div id="profile-card" hidden>
+        <div class="pc-top">
+          <span class="pc-label" id="pc-filename"></span>
+          <span class="pc-level" id="pc-level"></span>
         </div>
-
-        <label class="field-label">Target experience range</label>
-        <div class="slider-row">
-          <span id="range-label">0 – 1 yrs</span>
-        </div>
-        <div class="dual-slider">
-          <input type="range" id="range-min" min="0" max="15" step="1" value="0" />
-          <input type="range" id="range-max" min="0" max="15" step="1" value="1" />
-        </div>
-
-        <label class="field-label">Label</label>
-        <input id="resume-label-input" type="text" placeholder="e.g. Backend, AI/ML" />
-
-        <div class="upload-actions">
-          <button id="save-resume-btn" class="primary-btn">Save resume</button>
-          <button id="cancel-upload-btn" class="secondary-btn">Cancel</button>
-        </div>
+        <div class="pc-row" id="pc-education"></div>
+        <div class="pc-row" id="pc-domains"></div>
+        <label class="field-label">Skills detected</label>
+        <div id="pc-skills" class="tags"></div>
+        <button id="replace-resume-btn" class="secondary-btn replace-btn">Replace resume</button>
       </div>
 
-      <button id="upload-resume-btn" class="primary-btn upload-cta">+ Upload Resume</button>
+      <div id="upload-empty">
+        <button id="upload-resume-btn" class="primary-btn upload-cta">+ Upload Resume</button>
+        <div class="empty-sub">Your resume is read once by AI to build a profile — only that profile (never the raw resume) is sent for each job verdict.</div>
+      </div>
       <input id="pdf-file-input" type="file" accept="application/pdf" hidden />
       <div id="upload-status" class="status-line"></div>
+
+      <label class="field-label">Target experience range</label>
+      <div class="slider-row">
+        <span id="range-label">0 – 1 yrs</span>
+      </div>
+      <div class="dual-slider">
+        <input type="range" id="range-min" min="0" max="15" step="1" value="0" />
+        <input type="range" id="range-max" min="0" max="15" step="1" value="1" />
+      </div>
+    </section>
+
+    <section id="settings-section">
+      <label class="field-label">Your own Gemini API key (optional)</label>
+      <input id="byok-input" type="password" placeholder="Paste a free key from aistudio.google.com/apikey" />
+      <div class="empty-sub">Bypasses the shared daily limit — calls go straight from your browser to Gemini. Leave blank to use the free shared service.</div>
     </section>
   </main>
 
@@ -63,9 +62,6 @@
   </footer>
 
   <script src="../lib/pdf.min.js"></script>
-  <script src="../lib/experience.js"></script>
-  <script src="../lib/matcher.js"></script>
-  <script src="../lib/engine.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
