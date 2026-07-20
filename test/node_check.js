@@ -245,5 +245,42 @@ function fakeEmbed(text) {
   check("Generic words (We/Our/Team/About/Role) excluded from extracted keyword", !/^(We|Our|Team|About|Role)$/i.test(phrase.split(", ")[0] || ""), phrase);
 })();
 
+(function () {
+  // Regression: the skills-dictionary matcher must use real word boundaries. An earlier
+  // version had none at all, so short terms like "C" or "AI" matched as bare substrings
+  // inside unrelated words ("MetricsLand" contains a "c", "Angular" contains an "r").
+  const skillsRegex = MatcherLib.buildSkillsMatcher(require("../data/skills-dictionary.json").terms);
+
+  check(
+    "'C' does not falsely match inside 'MetricsLand'",
+    !MatcherLib.extractSkillMentions("We are MetricsLand, a data company.", skillsRegex).some((h) => h.toLowerCase() === "c"),
+    MatcherLib.extractSkillMentions("We are MetricsLand, a data company.", skillsRegex)
+  );
+
+  check(
+    "'C++' matches even when followed by punctuation (not a trailing word char)",
+    MatcherLib.extractSkillMentions("1+ years of experience in C and C++.", skillsRegex).some((h) => h === "C++"),
+    MatcherLib.extractSkillMentions("1+ years of experience in C and C++.", skillsRegex)
+  );
+
+  check(
+    "Dictionary match surfaces 'Angular' cleanly instead of a truncated sentence",
+    MatcherLib.extractKeyPhrase("Develop and maintain user-facing web applications using Angular", skillsRegex) === "Angular",
+    MatcherLib.extractKeyPhrase("Develop and maintain user-facing web applications using Angular", skillsRegex)
+  );
+
+  check(
+    "Dictionary match surfaces 'SRE' cleanly instead of a truncated sentence",
+    MatcherLib.extractKeyPhrase("SRE experience with large production environments.", skillsRegex) === "SRE",
+    MatcherLib.extractKeyPhrase("SRE experience with large production environments.", skillsRegex)
+  );
+
+  check(
+    "Company name is never surfaced when a real skill is also present in the same sentence",
+    !MatcherLib.extractKeyPhrase("We are MetricsLand, experts in AI and modern data platforms.", skillsRegex).includes("MetricsLand"),
+    MatcherLib.extractKeyPhrase("We are MetricsLand, experts in AI and modern data platforms.", skillsRegex)
+  );
+})();
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

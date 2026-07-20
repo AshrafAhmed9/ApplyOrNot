@@ -62,7 +62,8 @@
       "resources": [
         "data/domain-anchors.json",
         "data/soft-skills.json",
-        "data/site-selectors.json"
+        "data/site-selectors.json",
+        "data/skills-dictionary.json"
       ],
       "matches": [
         "*://*.linkedin.com/*",
