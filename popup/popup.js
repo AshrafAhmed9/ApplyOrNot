@@ -81,7 +81,8 @@ document.getElementById("pdf-file-input").addEventListener("change", async (e) =
     statusEl.textContent = "Analyzing resume (on-device)…";
     const { units, domains, primaryDomain } = await EngineLib.processResumeText(rawText);
     const skills = guessSkillTags(units);
-    pendingUpload = { rawText, units, domains, primaryDomain, skills };
+    const fileName = file.name.replace(/\.pdf$/i, "");
+    pendingUpload = { rawText, units, domains, primaryDomain, skills, fileName };
     showUploadForm(pendingUpload);
     statusEl.textContent = "";
   } catch (err) {
@@ -131,7 +132,7 @@ function showUploadForm(upload) {
     .join("");
 
   renderSkillTags(upload.skills);
-  document.getElementById("resume-label-input").value = "";
+  document.getElementById("resume-label-input").value = upload.fileName || "";
   document.getElementById("range-min").value = 0;
   document.getElementById("range-max").value = 1;
   updateRangeLabel();
@@ -186,7 +187,10 @@ document.getElementById("save-resume-btn").addEventListener("click", async () =>
   const targetMin = Number(document.getElementById("range-min").value);
   const targetMax = Number(document.getElementById("range-max").value);
   const resumes = await getResumes();
-  const label = document.getElementById("resume-label-input").value.trim() || `Resume ${resumes.length + 1}`;
+  const label =
+    document.getElementById("resume-label-input").value.trim() ||
+    pendingUpload.fileName ||
+    `Resume ${resumes.length + 1}`;
 
   resumes.push({
     id: `r_${Date.now()}`,

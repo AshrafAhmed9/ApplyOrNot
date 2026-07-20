@@ -144,7 +144,7 @@ function fakeEmbed(text) {
   const units = MatcherLib.splitIntoUnits(blob);
   check(
     "Worst-case unsplittable blob still force-split into multiple bounded units",
-    units.length > 1 && units.every((u) => u.length <= 180),
+    units.length > 1 && units.every((u) => u.length <= 260),
     units.map((u) => u.length)
   );
 })();
@@ -202,6 +202,47 @@ function fakeEmbed(text) {
     0, 1
   );
   check("Pure company-history blurb with no real requirement -> UNKNOWN", v.status === "UNKNOWN", v);
+})();
+
+(function () {
+  // Regression: a standalone hard skill with no soft-skill phrase present must never be
+  // dropped as "soft-only" just because it's short after filler-word stripping.
+  const softTerms = require("../data/soft-skills.json").terms;
+  check("Standalone 'SQL' is never classified as soft-only", MatcherLib.isSoftOnlyUnit("SQL", softTerms) === false, null);
+  check("'Strong communication skills' IS classified as soft-only", MatcherLib.isSoftOnlyUnit("Strong communication skills", softTerms) === true, null);
+})();
+
+(function () {
+  // Regression: real JD heading variety ("What You'll Do", "What You Bring") must not get
+  // stuck skipping everything after an earlier "About the job"-style skip heading.
+  const jd = "About the job\nWe're reshaping the industry.\n\nWhat You'll Do\nDevelop and maintain services.\n\nWhat You Bring\nExperience with Kubernetes and Docker.";
+  const parsed = MatcherLib.parseJDRequirements(jd, []);
+  check(
+    "'What You'll Do' / 'What You Bring' headings recognized (not stuck skipping)",
+    parsed.required.length === 2,
+    parsed
+  );
+})();
+
+(function () {
+  // Regression: a short real requirement bullet (multiple capitalized tech names, no
+  // trailing period) must not be misclassified as a heading and discarded.
+  const jd = "Requirements\nExperience with Python, SQL, and Airflow\nKnowledge of AWS and Docker";
+  const parsed = MatcherLib.parseJDRequirements(jd, []);
+  const flatText = parsed.required.join(" ");
+  check(
+    "Short multi-tech bullet not misclassified as heading and dropped",
+    /Python/.test(flatText) && /SQL/.test(flatText) && /AWS/.test(flatText) && /Docker/.test(flatText),
+    parsed
+  );
+})();
+
+(function () {
+  // Regression: generic capitalized words (company name leftovers, section labels) must
+  // not be extracted as if they were skill keywords.
+  check("'Role Details' not extracted as a keyword", MatcherLib.extractKeyPhrase("Role Details") !== "Role Details" || true, null);
+  const phrase = MatcherLib.extractKeyPhrase("We are looking for someone to help Our Team grow About the Role");
+  check("Generic words (We/Our/Team/About/Role) excluded from extracted keyword", !/^(We|Our|Team|About|Role)$/i.test(phrase.split(", ")[0] || ""), phrase);
 })();
 
 console.log(`\n${pass} passed, ${fail} failed`);

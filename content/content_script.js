@@ -196,12 +196,17 @@
     const isApply = v.verdict === "APPLY";
 
     if (!isApply) {
+      // Skill-gate misses get their own "Missing core requirements" label + highlighted
+      // chip boxes (reusing the same chip style as the APPLY card) instead of a single
+      // run-on sentence — chips are legible at a glance, a paragraph isn't.
+      const skillGapBlock =
+        v.gate === "skills" && v.gaps && v.gaps.length
+          ? `<div class="aon-section"><div class="aon-section-title">Missing core requirements</div>${chips(v.gaps.slice(0, 6))}</div>`
+          : `<div class="aon-verdict-row"><span class="aon-dot aon-dot-red"></span><span class="aon-verdict-reason">${escapeHtml(v.reason)}</span></div>`;
+
       render(`<div class="aon-card aon-fail">
         ${headerBar("aon-fail-top", "Don't apply")}
-        <div class="aon-verdict-row">
-          <span class="aon-dot aon-dot-red"></span>
-          <span class="aon-verdict-reason">${escapeHtml(v.reason)}</span>
-        </div>
+        ${skillGapBlock}
         ${footerHtml()}
       </div>`);
       return;
