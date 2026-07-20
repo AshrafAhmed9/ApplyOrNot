@@ -3,8 +3,19 @@
   "sites": {
     "linkedin": {
       "hostIncludes": ["linkedin.com"],
-      "container": [".jobs-description__content", ".jobs-box__html-content", "#job-details"],
-      "expandButtons": ["button.jobs-description__footer-button", "button[aria-label*='Click to see more description' i]"]
+      "container": [
+        ".jobs-description-content__text",
+        ".jobs-description__content",
+        ".jobs-box__html-content",
+        ".jobs-unified-description__content",
+        "[class*='jobs-description']",
+        "#job-details"
+      ],
+      "expandButtons": [
+        "button.jobs-description__footer-button",
+        "button[aria-label*='Click to see more description' i]",
+        "button[aria-label*='see more' i]"
+      ]
     },
     "indeed": {
       "hostIncludes": ["indeed.com"],
