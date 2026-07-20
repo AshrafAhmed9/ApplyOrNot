@@ -2,121 +2,173 @@
 // whenever the SPA navigates to a new listing (LinkedIn/Indeed swap content
 // without a full page reload).
 (function () {
-  const BADGE_ID = "jdfit-badge-root";
+  const BADGE_ID = "aon-root";
   let lastUrl = location.href;
   let running = false;
   let collapsed = false;
-
-  function el(tag, props = {}, children = []) {
-    const node = document.createElement(tag);
-    Object.entries(props).forEach(([k, v]) => {
-      if (k === "class") node.className = v;
-      else if (k === "html") node.innerHTML = v;
-      else node.setAttribute(k, v);
-    });
-    children.forEach((c) => node.appendChild(c));
-    return node;
-  }
-
-  function ensureBadgeRoot() {
-    let root = document.getElementById(BADGE_ID);
-    if (!root) {
-      root = el("div", { id: BADGE_ID });
-      document.documentElement.appendChild(root);
-      root.addEventListener("click", (e) => {
-        const toggle = e.target.closest("[data-jdfit-toggle]");
-        if (toggle) {
-          collapsed = !collapsed;
-          root.classList.toggle("jdfit-collapsed", collapsed);
-        }
-        const details = e.target.closest("[data-jdfit-expand]");
-        if (details) details.classList.toggle("jdfit-open");
-      });
-    }
-    return root;
-  }
-
-  function renderLoading() {
-    const root = ensureBadgeRoot();
-    root.innerHTML = `<div class="jdfit-card jdfit-loading" data-jdfit-toggle>
-      <div class="jdfit-header">Checking fit…</div>
-    </div>`;
-  }
-
-  function renderNoResumes() {
-    const root = ensureBadgeRoot();
-    root.innerHTML = `<div class="jdfit-card jdfit-neutral" data-jdfit-toggle>
-      <div class="jdfit-header">Upload a resume to get started</div>
-      <div class="jdfit-body">Click the ApplyOrNot icon in your toolbar.</div>
-      ${footerHtml()}
-    </div>`;
-  }
-
-  function footerHtml() {
-    return `<div class="jdfit-footer">
-      <a href="#" data-jdfit-rate target="_blank" rel="noopener">⭐ Rate</a>
-      <span class="jdfit-dot">·</span>
-      <a href="#" data-jdfit-feedback target="_blank" rel="noopener">💬 Feedback</a>
-    </div>`;
-  }
-
-  function listHtml(items, emptyText) {
-    if (!items || !items.length) return `<div class="jdfit-empty">${emptyText}</div>`;
-    return `<ul class="jdfit-list">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
-  }
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function renderVerdict(best, all, resumeCount) {
-    const root = ensureBadgeRoot();
-    const v = best.verdict;
-    const isApply = v.verdict === "APPLY";
-    root.classList.toggle("jdfit-collapsed", collapsed);
+  function ensureRoot() {
+    let root = document.getElementById(BADGE_ID);
+    if (!root) {
+      root = document.createElement("div");
+      root.id = BADGE_ID;
+      document.documentElement.appendChild(root);
 
-    if (!isApply) {
-      root.innerHTML = `<div class="jdfit-card jdfit-fail" data-jdfit-toggle>
-        <div class="jdfit-header">🔴 DON'T APPLY</div>
-        <div class="jdfit-reason">${escapeHtml(v.reason)}</div>
-        ${footerHtml()}
-      </div>`;
-      wireFooterLinks(root);
-      return;
+      // Single delegated click handler with explicit, non-overlapping targets.
+      root.addEventListener("click", (e) => {
+        // Collapse/expand only via the dedicated chevron button.
+        if (e.target.closest("[data-aon-collapse]")) {
+          collapsed = !collapsed;
+          root.classList.toggle("aon-collapsed", collapsed);
+          return;
+        }
+        // Re-open when clicking the collapsed pill.
+        if (collapsed && e.target.closest(".aon-card")) {
+          collapsed = false;
+          root.classList.remove("aon-collapsed");
+          return;
+        }
+        // Details disclosure toggles independently; never collapses the card.
+        const disc = e.target.closest("[data-aon-details]");
+        if (disc) {
+          const card = disc.closest(".aon-card");
+          if (card) card.classList.toggle("aon-details-open");
+        }
+      });
     }
+    return root;
+  }
 
-    const bestLine = resumeCount > 1 ? `<div class="jdfit-best">Best resume: ${escapeHtml(best.resume.label || "Resume")}</div>` : "";
-    const noteLine = v.note ? `<div class="jdfit-note">ℹ️ ${escapeHtml(v.note)}</div>` : "";
-    const compareRows = all
-      .map((r) => `<li>${escapeHtml(r.resume.label || "Resume")}: ${r.verdict.matchPct ?? 0}%</li>`)
-      .join("");
-
-    root.innerHTML = `<div class="jdfit-card jdfit-apply" data-jdfit-toggle>
-      <div class="jdfit-header">🟢 APPLY <span class="jdfit-pct">${v.matchPct}% match</span></div>
-      ${bestLine}
-      <div class="jdfit-exp">Experience: ${escapeHtml(v.expLabel)}</div>
-      ${noteLine}
-      <div class="jdfit-section-title">Missing (required)</div>
-      ${listHtml(v.gaps, "None — full coverage.")}
-      <div data-jdfit-expand class="jdfit-expandable">
-        <div class="jdfit-expand-toggle">▸ More details</div>
-        <div class="jdfit-expand-body">
-          <div class="jdfit-section-title">Matched strengths</div>
-          ${listHtml(v.strengths, "—")}
-          <div class="jdfit-section-title">Nice-to-have gaps</div>
-          ${listHtml(v.niceToHaveGaps, "None")}
-          ${resumeCount > 1 ? `<div class="jdfit-section-title">Compare resumes</div><ul class="jdfit-list">${compareRows}</ul>` : ""}
-          ${v.softSkillsFound?.length ? `<div class="jdfit-section-title">Soft skills mentioned (info only)</div>${listHtml(v.softSkillsFound, "—")}` : ""}
-        </div>
+  function headerBar(stateClass, titleHtml) {
+    return `<div class="aon-top ${stateClass}">
+      <div class="aon-brand">
+        <span class="aon-logo"></span>
+        <span class="aon-title">${titleHtml}</span>
       </div>
-      ${footerHtml()}
+      <button class="aon-chevron" data-aon-collapse aria-label="Collapse">
+        <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>`;
+  }
+
+  function footerHtml() {
+    return `<div class="aon-footer">
+      <a href="#" data-aon-rate target="_blank" rel="noopener">★ Rate</a>
+      <span class="aon-sep">·</span>
+      <a href="#" data-aon-feedback target="_blank" rel="noopener">Feedback</a>
+    </div>`;
+  }
+
+  function chips(items) {
+    if (!items || !items.length) return "";
+    return `<div class="aon-chips">${items.map((i) => `<span class="aon-chip">${escapeHtml(i)}</span>`).join("")}</div>`;
+  }
+
+  function render(html) {
+    const root = ensureRoot();
+    root.classList.toggle("aon-collapsed", collapsed);
+    root.innerHTML = html;
     wireFooterLinks(root);
   }
 
+  function renderLoading() {
+    render(`<div class="aon-card aon-neutral">
+      ${headerBar("", "ApplyOrNot")}
+      <div class="aon-loading"><span class="aon-spinner"></span> Analyzing this role…</div>
+    </div>`);
+  }
+
+  function renderNoResumes() {
+    render(`<div class="aon-card aon-neutral">
+      ${headerBar("", "ApplyOrNot")}
+      <div class="aon-body">
+        <div class="aon-empty-title">Upload a resume to begin</div>
+        <div class="aon-empty-sub">Click the ApplyOrNot icon in your toolbar to add one.</div>
+      </div>
+      ${footerHtml()}
+    </div>`);
+  }
+
+  function renderError() {
+    render(`<div class="aon-card aon-neutral">
+      ${headerBar("", "ApplyOrNot")}
+      <div class="aon-body">
+        <div class="aon-empty-title">Couldn't read this page</div>
+        <div class="aon-empty-sub">No job description detected here yet.</div>
+      </div>
+      ${footerHtml()}
+    </div>`);
+  }
+
+  function renderVerdict(best, all, resumeCount) {
+    const v = best.verdict;
+    const isApply = v.verdict === "APPLY";
+
+    if (!isApply) {
+      render(`<div class="aon-card aon-fail">
+        ${headerBar("aon-fail-top", "Don't apply")}
+        <div class="aon-verdict-row">
+          <span class="aon-dot aon-dot-red"></span>
+          <span class="aon-verdict-reason">${escapeHtml(v.reason)}</span>
+        </div>
+        ${footerHtml()}
+      </div>`);
+      return;
+    }
+
+    const bestLine =
+      resumeCount > 1
+        ? `<div class="aon-meta">Best résumé · <b>${escapeHtml(best.resume.label || "Resume")}</b></div>`
+        : "";
+    const noteLine = v.note ? `<div class="aon-note">${escapeHtml(v.note)}</div>` : "";
+    const compareRows = all
+      .slice()
+      .sort((a, b) => (b.verdict.matchPct ?? 0) - (a.verdict.matchPct ?? 0))
+      .map(
+        (r) =>
+          `<div class="aon-compare-row"><span>${escapeHtml(r.resume.label || "Resume")}</span><span class="aon-compare-pct">${r.verdict.matchPct ?? 0}%</span></div>`
+      )
+      .join("");
+
+    render(`<div class="aon-card aon-apply">
+      ${headerBar("aon-apply-top", "Apply")}
+      <div class="aon-score">
+        <div class="aon-ring" style="--pct:${v.matchPct}">
+          <span class="aon-ring-num">${v.matchPct}<span class="aon-ring-pct">%</span></span>
+        </div>
+        <div class="aon-score-side">
+          <div class="aon-verdict-row"><span class="aon-dot aon-dot-green"></span><span class="aon-verdict-word">Good match</span></div>
+          ${bestLine}
+          <div class="aon-meta">${escapeHtml(v.expLabel)}</div>
+        </div>
+      </div>
+      ${noteLine}
+      ${
+        v.gaps && v.gaps.length
+          ? `<div class="aon-section"><div class="aon-section-title">Missing requirements</div>${chips(v.gaps)}</div>`
+          : `<div class="aon-section"><div class="aon-section-title">Requirements</div><div class="aon-allclear">✓ Full coverage</div></div>`
+      }
+      <button class="aon-details-toggle" data-aon-details>
+        <span class="aon-details-label">Details</span>
+        <svg class="aon-details-caret" viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="aon-details">
+        ${v.strengths && v.strengths.length ? `<div class="aon-section-title">Matched strengths</div>${chips(v.strengths)}` : ""}
+        ${v.niceToHaveGaps && v.niceToHaveGaps.length ? `<div class="aon-section-title">Nice-to-have gaps</div>${chips(v.niceToHaveGaps)}` : ""}
+        ${resumeCount > 1 ? `<div class="aon-section-title">Compare résumés</div><div class="aon-compare">${compareRows}</div>` : ""}
+        ${v.softSkillsFound && v.softSkillsFound.length ? `<div class="aon-section-title">Soft skills mentioned<span class="aon-info-tag">info only</span></div>${chips(v.softSkillsFound)}` : ""}
+      </div>
+      ${footerHtml()}
+    </div>`);
+  }
+
   function wireFooterLinks(root) {
-    const rate = root.querySelector("[data-jdfit-rate]");
-    const feedback = root.querySelector("[data-jdfit-feedback]");
+    const rate = root.querySelector("[data-aon-rate]");
+    const feedback = root.querySelector("[data-aon-feedback]");
     if (rate) rate.href = "https://chromewebstore.google.com/detail/YOUR_EXTENSION_ID/reviews";
     if (feedback) feedback.href = "mailto:feedback@example.com?subject=ApplyOrNot%20feedback";
   }
@@ -145,12 +197,13 @@
       renderLoading();
       const { text: jdText } = await ScraperLib.scrapeFullJD();
       if (!jdText || jdText.length < 40) {
-        renderNoResumes(); // not enough JD text found on this page yet
+        renderError();
         return;
       }
       const { best, all } = await EngineLib.scoreJD(jdText, resumes);
       renderVerdict(best, all, resumes.length);
       await logScan({
+        company: document.title.slice(0, 120),
         jdUrl: location.href,
         verdict: best.verdict.verdict,
         bestResumeId: best.resume.id,
@@ -160,6 +213,7 @@
       });
     } catch (err) {
       console.error("[ApplyOrNot] matcher error", err);
+      renderError();
     } finally {
       running = false;
     }
