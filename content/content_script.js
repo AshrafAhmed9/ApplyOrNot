@@ -212,20 +212,21 @@
         ? `<div class="aon-meta">Best résumé · <b>${escapeHtml(best.resume.label || "Resume")}</b></div>`
         : "";
     const noteLine = v.note ? `<div class="aon-note">${escapeHtml(v.note)}</div>` : "";
+    const hasScore = typeof v.matchPct === "number";
     const compareRows = all
       .slice()
-      .sort((a, b) => (b.verdict.matchPct ?? 0) - (a.verdict.matchPct ?? 0))
+      .sort((a, b) => (b.verdict.matchPct ?? -1) - (a.verdict.matchPct ?? -1))
       .map(
         (r) =>
-          `<div class="aon-compare-row"><span>${escapeHtml(r.resume.label || "Resume")}</span><span class="aon-compare-pct">${r.verdict.matchPct ?? 0}%</span></div>`
+          `<div class="aon-compare-row"><span>${escapeHtml(r.resume.label || "Resume")}</span><span class="aon-compare-pct">${typeof r.verdict.matchPct === "number" ? r.verdict.matchPct + "%" : "—"}</span></div>`
       )
       .join("");
 
     render(`<div class="aon-card aon-apply">
       ${headerBar("aon-apply-top", "Apply")}
       <div class="aon-score">
-        <div class="aon-ring" style="--pct:${v.matchPct}">
-          <span class="aon-ring-num">${v.matchPct}<span class="aon-ring-pct">%</span></span>
+        <div class="aon-ring" style="--pct:${hasScore ? v.matchPct : 0}">
+          <span class="aon-ring-num">${hasScore ? v.matchPct : "—"}${hasScore ? `<span class="aon-ring-pct">%</span>` : ""}</span>
         </div>
         <div class="aon-score-side">
           <div class="aon-verdict-row"><span class="aon-dot aon-dot-green"></span><span class="aon-verdict-word">Good match</span></div>
@@ -235,7 +236,9 @@
       </div>
       ${noteLine}
       ${
-        v.gaps && v.gaps.length
+        !hasScore
+          ? ""
+          : v.gaps && v.gaps.length
           ? `<div class="aon-section"><div class="aon-section-title">Missing requirements</div>${chips(v.gaps)}</div>`
           : `<div class="aon-section"><div class="aon-section-title">Requirements</div><div class="aon-allclear">✓ Full coverage</div></div>`
       }
@@ -265,13 +268,6 @@
     return resumes || [];
   }
 
-  async function logScan(entry) {
-    const { scanHistory } = await chrome.storage.local.get("scanHistory");
-    const history = scanHistory || [];
-    history.unshift(entry);
-    await chrome.storage.local.set({ scanHistory: history.slice(0, 20) });
-  }
-
   async function runMatcher() {
     if (running || !overlayEnabled) return;
     running = true;
@@ -289,15 +285,6 @@
       }
       const { best, all } = await EngineLib.scoreJD(jdText, resumes);
       renderVerdict(best, all, resumes.length);
-      await logScan({
-        company: document.title.slice(0, 120),
-        jdUrl: location.href,
-        verdict: best.verdict.verdict,
-        bestResumeId: best.resume.id,
-        matchPct: best.verdict.matchPct ?? null,
-        missingSkills: best.verdict.gaps || [],
-        timestamp: Date.now(),
-      });
     } catch (err) {
       console.error("[ApplyOrNot] matcher error", err);
       renderNoJD();

@@ -135,6 +135,40 @@ function fakeEmbed(text) {
 })();
 
 (function () {
+  // Regression: absolute worst case — one giant blob with no newlines, no sentence
+  // punctuation, no commas (total upstream splitting failure). Must never collapse to
+  // 0 units (which would silently default the score to 100%) or survive as 1 giant unit
+  // (which would make the score purely binary).
+  const blob =
+    "About the job We are looking for a passionate and detail oriented software engineer to join our growing team and help us build the next generation of web applications using modern technologies like React TypeScript Node and PostgreSQL while collaborating closely with designers and product managers in an agile environment";
+  const units = MatcherLib.splitIntoUnits(blob);
+  check(
+    "Worst-case unsplittable blob still force-split into multiple bounded units",
+    units.length > 1 && units.every((u) => u.length <= 180),
+    units.map((u) => u.length)
+  );
+})();
+
+(function () {
+  // Regression: an empty required/preferred list (all fluff, nothing left after filtering)
+  // must not silently default to a false 100% match.
+  const resume = { domains: ["software_engineering"], targetMin: 0, targetMax: 2, units: [] };
+  const result = MatcherLib.getVerdict({
+    resume,
+    jd: { text: "About the job. We are looking for someone great to join our team." },
+    jdVector: [1, 0],
+    jdUnitVectors: [], // nothing survived parsing — simulates all-fluff JD
+    domainCentroids: { software_engineering: [1, 0] },
+    softTerms: [],
+  });
+  check(
+    "Empty requirement list -> matchPct is null (not a silent 100%)",
+    result.verdict === "APPLY" && result.matchPct === null,
+    result
+  );
+})();
+
+(function () {
   // Regression: "About the job" heading + narrative intro must never be scored as
   // requirements (they can never match anything in a resume, silently tanking every score).
   const jdText = "About the job\nWe are looking for a passionate and detail-oriented developer to join our team.\n\nResponsibilities\nDevelop and maintain user-facing web applications using Angular\nWrite clean, testable code";

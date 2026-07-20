@@ -17,8 +17,8 @@ body {
   background: var(--bg);
 }
 
-.pop-header { padding: 14px 16px 0; background: var(--card); border-bottom: 0.5px solid var(--line); }
-.pop-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pop-header { padding: 14px 16px; background: var(--card); border-bottom: 0.5px solid var(--line); }
+.pop-title-row { display: flex; align-items: center; justify-content: space-between; }
 .pop-title { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
 
 .overlay-switch { display: flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
@@ -36,16 +36,7 @@ body {
 .overlay-switch input:checked + .switch-track .switch-thumb { transform: translateX(14px); }
 .overlay-switch input:focus-visible + .switch-track { outline: 2px solid rgba(10,132,255,0.5); outline-offset: 2px; }
 
-.pop-tabs { display: flex; gap: 2px; }
-.pop-tab {
-  flex: 1; padding: 9px 0; background: none; border: none; font-size: 12.5px; color: var(--sub);
-  border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500;
-}
-.pop-tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-
 main { padding: 14px 16px; min-height: 210px; max-height: 440px; overflow-y: auto; }
-.pop-tab-panel { display: none; }
-.pop-tab-panel.active { display: block; }
 
 .resume-card {
   border: 0.5px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
@@ -119,11 +110,6 @@ select:focus, input[type="text"]:focus { outline: 2px solid rgba(10,132,255,0.4)
 .pop-footer a { color: var(--accent); text-decoration: none; font-weight: 500; }
 .pop-footer a:hover { text-decoration: underline; }
 .pop-footer .dot { margin: 0 8px; color: #c7c7cc; }
-
-.history-item { font-size: 12.5px; border-bottom: 0.5px solid var(--line); padding: 9px 0; }
-.history-item:last-child { border-bottom: none; }
-.history-item .h-verdict-apply { color: #1c8a3e; font-weight: 600; }
-.history-item .h-verdict-fail { color: #c9302c; font-weight: 600; }
 
 @media (prefers-color-scheme: dark) {
   :root {

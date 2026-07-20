@@ -19,17 +19,6 @@ const DOMAIN_LABELS = {
 
 let pendingUpload = null; // { rawText, units, domains, primaryDomain, skills }
 
-// ---------- Tabs ----------
-document.querySelectorAll(".pop-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".pop-tab").forEach((t) => t.classList.remove("active"));
-    document.querySelectorAll(".pop-tab-panel").forEach((p) => p.classList.remove("active"));
-    tab.classList.add("active");
-    document.getElementById(`tab-${tab.dataset.tab}`).classList.add("active");
-    if (tab.dataset.tab === "history") renderHistory();
-  });
-});
-
 // ---------- Footer links ----------
 document.getElementById("rate-link").href = "https://chromewebstore.google.com/detail/YOUR_EXTENSION_ID/reviews";
 document.getElementById("feedback-link").href = "mailto:feedback@example.com?subject=ApplyOrNot%20feedback";
@@ -196,9 +185,9 @@ document.getElementById("save-resume-btn").addEventListener("click", async () =>
   const domain = document.getElementById("domain-select").value;
   const targetMin = Number(document.getElementById("range-min").value);
   const targetMax = Number(document.getElementById("range-max").value);
-  const label = document.getElementById("resume-label-input").value.trim() || DOMAIN_LABELS[domain];
-
   const resumes = await getResumes();
+  const label = document.getElementById("resume-label-input").value.trim() || `Resume ${resumes.length + 1}`;
+
   resumes.push({
     id: `r_${Date.now()}`,
     label,
@@ -214,27 +203,6 @@ document.getElementById("save-resume-btn").addEventListener("click", async () =>
   resetUploadForm();
   renderResumeList();
 });
-
-// ---------- History ----------
-async function renderHistory() {
-  const { scanHistory } = await chrome.storage.local.get("scanHistory");
-  const container = document.getElementById("history-list");
-  const history = scanHistory || [];
-  if (!history.length) {
-    container.innerHTML = `<div class="status-line">No scans yet.</div>`;
-    return;
-  }
-  container.innerHTML = history
-    .map((h) => {
-      const cls = h.verdict === "APPLY" ? "h-verdict-apply" : "h-verdict-fail";
-      const date = new Date(h.timestamp).toLocaleDateString();
-      return `<div class="history-item">
-        <span class="${cls}">${h.verdict}</span> · ${h.matchPct != null ? h.matchPct + "%" : "—"} · ${date}
-        <div style="color:#9ca3af;font-size:11px;">${escapeHtml(h.jdUrl)}</div>
-      </div>`;
-    })
-    .join("");
-}
 
 // ---------- Overlay toggle ----------
 async function loadSettings() {

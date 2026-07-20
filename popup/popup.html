@@ -15,14 +15,10 @@
         <span class="switch-track"><span class="switch-thumb"></span></span>
       </label>
     </div>
-    <div class="pop-tabs">
-      <button class="pop-tab active" data-tab="resumes">Resumes</button>
-      <button class="pop-tab" data-tab="history">History</button>
-    </div>
   </header>
 
   <main>
-    <section id="tab-resumes" class="pop-tab-panel active">
+    <section id="tab-resumes">
       <div id="resume-list"></div>
 
       <div id="upload-form" class="upload-form" hidden>
@@ -46,7 +42,7 @@
         </div>
 
         <label class="field-label">Label (optional)</label>
-        <input id="resume-label-input" type="text" placeholder="e.g. Backend, AI/ML" />
+        <input id="resume-label-input" type="text" placeholder="e.g. Backend, AI/ML (defaults to Resume 1, 2, …)" />
 
         <div class="upload-actions">
           <button id="save-resume-btn" class="primary-btn">Save resume</button>
@@ -57,10 +53,6 @@
       <button id="upload-resume-btn" class="primary-btn upload-cta">+ Upload Resume</button>
       <input id="pdf-file-input" type="file" accept="application/pdf" hidden />
       <div id="upload-status" class="status-line"></div>
-    </section>
-
-    <section id="tab-history" class="pop-tab-panel">
-      <div id="history-list"></div>
     </section>
   </main>
 
