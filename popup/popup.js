@@ -144,7 +144,7 @@ function showUploadForm(upload) {
   renderSkillTags(upload.skills);
   document.getElementById("resume-label-input").value = "";
   document.getElementById("range-min").value = 0;
-  document.getElementById("range-max").value = 2;
+  document.getElementById("range-max").value = 1;
   updateRangeLabel();
 }
 
@@ -239,13 +239,15 @@ async function renderHistory() {
 // ---------- Settings ----------
 async function loadSettings() {
   const { settings } = await chrome.storage.local.get("settings");
-  const s = settings || { sites: { linkedin: true, indeed: true } };
+  const s = settings || { sites: { linkedin: true, indeed: true }, showOverlay: true };
+  document.getElementById("toggle-overlay").checked = s.showOverlay !== false;
   document.getElementById("toggle-linkedin").checked = s.sites.linkedin !== false;
   document.getElementById("toggle-indeed").checked = s.sites.indeed !== false;
 }
 async function saveSettings() {
   await chrome.storage.local.set({
     settings: {
+      showOverlay: document.getElementById("toggle-overlay").checked,
       sites: {
         linkedin: document.getElementById("toggle-linkedin").checked,
         indeed: document.getElementById("toggle-indeed").checked,
@@ -253,6 +255,7 @@ async function saveSettings() {
     },
   });
 }
+document.getElementById("toggle-overlay").addEventListener("change", saveSettings);
 document.getElementById("toggle-linkedin").addEventListener("change", saveSettings);
 document.getElementById("toggle-indeed").addEventListener("change", saveSettings);
 

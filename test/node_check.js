@@ -125,5 +125,14 @@ function fakeEmbed(text) {
   check("Soft-skill-only bullet excluded from required list", !leaked, parsed);
 })();
 
+(function () {
+  // Regression: a flattened requirements blob (no newlines, no periods — as if block
+  // boundaries were lost upstream) must still split into multiple units, otherwise the
+  // match score can only ever be 0% or 100% instead of a real percentage.
+  const flattened = "Requirements: Python, Java, SQL, REST APIs, Git, Kubernetes, Docker, AWS, CI/CD, Agile";
+  const units = MatcherLib.splitIntoUnits(flattened);
+  check("Flattened comma-separated requirements split into multiple units (not 1)", units.length > 1, units);
+})();
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

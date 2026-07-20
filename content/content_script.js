@@ -1,24 +1,106 @@
 // Injects the persistent verdict overlay on job pages, auto-refreshing it
 // whenever the SPA navigates to a new listing (LinkedIn/Indeed swap content
-// without a full page reload).
+// without a full page reload). Draggable, collapsible, and can be hidden
+// entirely via the popup's "Show on-page overlay" setting.
 (function () {
   const BADGE_ID = "aon-root";
   let lastUrl = location.href;
   let running = false;
   let collapsed = false;
+  let overlayEnabled = true;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  // ---------- Settings (overlay on/off) ----------
+  async function loadOverlaySetting() {
+    const { settings } = await chrome.storage.local.get("settings");
+    overlayEnabled = settings?.showOverlay !== false;
+  }
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes.settings) return;
+    const wasEnabled = overlayEnabled;
+    overlayEnabled = changes.settings.newValue?.showOverlay !== false;
+    const root = document.getElementById(BADGE_ID);
+    if (!overlayEnabled && root) {
+      root.style.display = "none";
+    } else if (overlayEnabled && !wasEnabled) {
+      if (root) root.style.display = "";
+      runMatcher();
+    }
+  });
+
+  // ---------- Draggable position ----------
+  async function loadPosition(root) {
+    const { aonPosition } = await chrome.storage.local.get("aonPosition");
+    if (aonPosition && typeof aonPosition.left === "number" && typeof aonPosition.top === "number") {
+      root.style.left = `${aonPosition.left}px`;
+      root.style.top = `${aonPosition.top}px`;
+      root.style.right = "auto";
+      root.style.bottom = "auto";
+    }
+  }
+
+  function savePosition(left, top) {
+    chrome.storage.local.set({ aonPosition: { left, top } });
+  }
+
+  function wireDrag(root) {
+    let dragging = false;
+    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+    root.addEventListener("pointerdown", (e) => {
+      // Only drag from the header itself, never from buttons/links inside it.
+      const header = e.target.closest(".aon-top");
+      if (!header || e.target.closest("button, a")) return;
+      dragging = true;
+      const rect = root.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      root.setPointerCapture(e.pointerId);
+      root.classList.add("aon-dragging");
+    });
+
+    root.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      let left = startLeft + dx;
+      let top = startTop + dy;
+      const maxLeft = window.innerWidth - 60;
+      const maxTop = window.innerHeight - 40;
+      left = Math.max(-260, Math.min(left, maxLeft));
+      top = Math.max(0, Math.min(top, maxTop));
+      root.style.left = `${left}px`;
+      root.style.top = `${top}px`;
+      root.style.right = "auto";
+      root.style.bottom = "auto";
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      root.classList.remove("aon-dragging");
+      const rect = root.getBoundingClientRect();
+      savePosition(rect.left, rect.top);
+    }
+    root.addEventListener("pointerup", endDrag);
+    root.addEventListener("pointercancel", endDrag);
+  }
+
+  // ---------- Rendering ----------
   function ensureRoot() {
     let root = document.getElementById(BADGE_ID);
     if (!root) {
       root = document.createElement("div");
       root.id = BADGE_ID;
       document.documentElement.appendChild(root);
+      loadPosition(root);
+      wireDrag(root);
 
-      // Single delegated click handler with explicit, non-overlapping targets.
       root.addEventListener("click", (e) => {
         // Collapse/expand only via the dedicated chevron button.
         if (e.target.closest("[data-aon-collapse]")) {
@@ -63,9 +145,14 @@
     </div>`;
   }
 
+  const CHIP_MAX_LEN = 90;
+  function truncate(s) {
+    return s.length > CHIP_MAX_LEN ? s.slice(0, CHIP_MAX_LEN - 1).trimEnd() + "…" : s;
+  }
+
   function chips(items) {
     if (!items || !items.length) return "";
-    return `<div class="aon-chips">${items.map((i) => `<span class="aon-chip">${escapeHtml(i)}</span>`).join("")}</div>`;
+    return `<div class="aon-chips">${items.map((i) => `<span class="aon-chip">${escapeHtml(truncate(i))}</span>`).join("")}</div>`;
   }
 
   function render(html) {
@@ -93,12 +180,12 @@
     </div>`);
   }
 
-  function renderError() {
+  function renderNoJD() {
     render(`<div class="aon-card aon-neutral">
       ${headerBar("", "ApplyOrNot")}
       <div class="aon-body">
-        <div class="aon-empty-title">Couldn't read this page</div>
-        <div class="aon-empty-sub">No job description detected here yet.</div>
+        <div class="aon-empty-title">No job description detected</div>
+        <div class="aon-empty-sub">This page doesn't look like a job posting.</div>
       </div>
       ${footerHtml()}
     </div>`);
@@ -186,7 +273,7 @@
   }
 
   async function runMatcher() {
-    if (running) return;
+    if (running || !overlayEnabled) return;
     running = true;
     try {
       const resumes = await getResumes();
@@ -195,9 +282,9 @@
         return;
       }
       renderLoading();
-      const { text: jdText } = await ScraperLib.scrapeFullJD();
-      if (!jdText || jdText.length < 40) {
-        renderError();
+      const { text: jdText, tier } = await ScraperLib.scrapeFullJD();
+      if (tier === "none" || !jdText) {
+        renderNoJD();
         return;
       }
       const { best, all } = await EngineLib.scoreJD(jdText, resumes);
@@ -213,7 +300,7 @@
       });
     } catch (err) {
       console.error("[ApplyOrNot] matcher error", err);
-      renderError();
+      renderNoJD();
     } finally {
       running = false;
     }
@@ -226,6 +313,9 @@
     }
   }
 
-  new MutationObserver(checkAndRun).observe(document.body, { childList: true, subtree: true });
-  runMatcher(); // also run once on first load
+  (async function init() {
+    await loadOverlaySetting();
+    new MutationObserver(checkAndRun).observe(document.body, { childList: true, subtree: true });
+    runMatcher(); // also run once on first load
+  })();
 })();

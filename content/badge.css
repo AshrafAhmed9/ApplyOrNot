@@ -48,7 +48,13 @@
   background: inherit;
   -webkit-backdrop-filter: inherit;
   backdrop-filter: inherit;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
+#aon-root.aon-dragging .aon-top { cursor: grabbing; }
+#aon-root.aon-dragging .aon-card { box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.12); }
 #aon-root .aon-brand { display: flex; align-items: center; gap: 8px; }
 #aon-root .aon-logo {
   width: 16px; height: 16px; border-radius: 5px;
