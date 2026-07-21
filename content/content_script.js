@@ -313,8 +313,20 @@
   }
 
   (async function init() {
+    // resetToIdle() runs FIRST and independently — on some pages document.body isn't
+    // ready yet even at document_idle (rare, but real: XML/plugin views, very fast
+    // redirects). observe() throwing there must never also block the pill from showing.
     await loadOverlaySetting();
-    new MutationObserver(checkAndRun).observe(document.body, { childList: true, subtree: true });
     resetToIdle(); // idle pill on first load — no network call until clicked
+    try {
+      new MutationObserver(checkAndRun).observe(document.body, { childList: true, subtree: true });
+    } catch (err) {
+      console.error("[ApplyOrNot] could not observe document.body for SPA navigation", err);
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => new MutationObserver(checkAndRun).observe(document.body, { childList: true, subtree: true }),
+        { once: true }
+      );
+    }
   })();
 })();
