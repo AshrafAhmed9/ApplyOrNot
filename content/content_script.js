@@ -1,8 +1,11 @@
-// Injects the persistent verdict overlay on job pages, auto-refreshing it whenever the
-// SPA navigates to a new listing (LinkedIn/Indeed swap content without a full page
-// reload). Draggable, collapsible, hideable. The verdict itself comes from a single LLM
-// call (via lib/llm.js) grounded in the user's candidate profile + preferences — no local
-// scoring; the overlay is presentation only.
+// Injects a small idle pill on job pages — it makes NO network call on its own. The user
+// clicks it to run a verdict (scrape -> cache-check -> single LLM call), which then expands
+// into the full card. SPA navigation to a new listing (LinkedIn/Indeed swap content without
+// a full page reload) resets back to the idle pill rather than auto-running, so tokens are
+// only ever spent on jobs the user actually chooses to check. Draggable, collapsible,
+// hideable. The verdict itself comes from a single LLM call (via lib/llm.js) grounded in
+// the user's candidate profile + preferences — no local scoring; this file is presentation
+// and triggering only.
 (function () {
   const BADGE_ID = "aon-root";
   let lastUrl = location.href;
@@ -28,7 +31,7 @@
       root.style.display = "none";
     } else if (overlayEnabled && !wasEnabled) {
       if (root) root.style.display = "";
-      runVerdict();
+      resetToIdle();
     }
   });
 
@@ -52,7 +55,7 @@
     let startX = 0, startY = 0, startLeft = 0, startTop = 0;
 
     root.addEventListener("pointerdown", (e) => {
-      const header = e.target.closest(".aon-top");
+      const header = e.target.closest(".aon-top, .aon-idle-row");
       if (!header || e.target.closest("button, a")) return;
       dragging = true;
       const rect = root.getBoundingClientRect();
@@ -102,6 +105,10 @@
       wireDrag(root);
 
       root.addEventListener("click", (e) => {
+        if (e.target.closest("[data-aon-check]")) {
+          runVerdict();
+          return;
+        }
         if (e.target.closest("[data-aon-collapse]")) {
           collapsed = !collapsed;
           root.classList.toggle("aon-collapsed", collapsed);
@@ -160,10 +167,20 @@
     wireFooterLinks(root);
   }
 
+  /** Idle state: no network call has been made for this listing. Clicking runs the verdict. */
+  function renderIdle() {
+    render(`<div class="aon-card aon-neutral aon-idle">
+      <div class="aon-idle-row">
+        <span class="aon-logo"></span>
+        <button class="aon-check-btn" data-aon-check>Check fit</button>
+      </div>
+    </div>`);
+  }
+
   function renderLoading() {
     render(`<div class="aon-card aon-neutral">
       ${headerBar("", "ApplyOrNot")}
-      <div class="aon-loading"><span class="aon-spinner"></span> Asking the recruiter…</div>
+      <div class="aon-loading"><span class="aon-spinner"></span> Checking…</div>
     </div>`);
   }
 
@@ -208,18 +225,7 @@
     const dotClass = isApply ? "aon-dot-green" : "aon-dot-red";
     const reasonPrefix = isLowConfidence ? "Borderline — " : "";
 
-    const detailSections = [
-      v.strengths?.length ? `<div class="aon-section-title">Strengths</div>${chips(v.strengths)}` : "",
-      v.concerns?.length ? `<div class="aon-section-title">Concerns</div>${chips(v.concerns, "warn")}` : "",
-      v.missing_hard_requirements?.length
-        ? `<div class="aon-section-title">Missing hard requirements</div>${chips(v.missing_hard_requirements, "warn")}`
-        : "",
-      v.resume_suggestions?.length
-        ? `<div class="aon-section-title">Resume suggestions</div>${chips(v.resume_suggestions)}`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("");
+    const detailSections = v.gaps?.length ? `<div class="aon-section-title">Gaps</div>${chips(v.gaps, "warn")}` : "";
 
     render(`<div class="aon-card ${isApply ? "aon-apply" : "aon-fail"}">
       ${headerBar(stateClass, title)}
@@ -230,7 +236,7 @@
       ${
         detailSections
           ? `<button class="aon-details-toggle" data-aon-details>
-               <span class="aon-details-label">Why</span>
+               <span class="aon-details-label">Details</span>
                <svg class="aon-details-caret" viewBox="0 0 16 16" width="12" height="12"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
              </button>
              <div class="aon-details">${detailSections}</div>`
@@ -252,6 +258,19 @@
     return { profile, preferences: preferences || { targetMin: 0, targetMax: 2 } };
   }
 
+  /** Called on load and on SPA navigation to a new listing. Makes no network call — only
+   *  checks local storage for a profile, then shows either the empty state or the idle pill. */
+  async function resetToIdle() {
+    if (!overlayEnabled) return;
+    const { profile } = await getProfile();
+    if (!profile) {
+      renderNoProfile();
+      return;
+    }
+    renderIdle();
+  }
+
+  /** Runs only when the user clicks "Check fit". */
   async function runVerdict() {
     if (running || !overlayEnabled) return;
     running = true;
@@ -289,13 +308,13 @@
   function checkAndRun() {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
-      setTimeout(runVerdict, 600); // let the new JD render first
+      setTimeout(resetToIdle, 600); // let the new JD render first; still no network call
     }
   }
 
   (async function init() {
     await loadOverlaySetting();
     new MutationObserver(checkAndRun).observe(document.body, { childList: true, subtree: true });
-    runVerdict(); // also run once on first load
+    resetToIdle(); // idle pill on first load — no network call until clicked
   })();
 })();

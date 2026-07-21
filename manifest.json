@@ -22,27 +22,13 @@
   },
   "permissions": ["storage"],
   "host_permissions": [
-    "*://*.linkedin.com/*",
-    "*://*.indeed.com/*",
-    "*://*.greenhouse.io/*",
-    "*://*.lever.co/*",
-    "*://*.myworkdayjobs.com/*",
-    "*://*.ashbyhq.com/*",
-    "*://*.icims.com/*",
+    "<all_urls>",
     "https://*.workers.dev/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "content_scripts": [
     {
-      "matches": [
-        "*://*.linkedin.com/jobs/*",
-        "*://*.indeed.com/*",
-        "*://*.greenhouse.io/*",
-        "*://*.lever.co/*",
-        "*://*.myworkdayjobs.com/*",
-        "*://*.ashbyhq.com/*",
-        "*://*.icims.com/*"
-      ],
+      "matches": ["<all_urls>"],
       "js": [
         "lib/readability.min.js",
         "lib/scraper.js",
@@ -61,15 +47,7 @@
   "web_accessible_resources": [
     {
       "resources": ["data/site-selectors.json"],
-      "matches": [
-        "*://*.linkedin.com/*",
-        "*://*.indeed.com/*",
-        "*://*.greenhouse.io/*",
-        "*://*.lever.co/*",
-        "*://*.myworkdayjobs.com/*",
-        "*://*.ashbyhq.com/*",
-        "*://*.icims.com/*"
-      ]
+      "matches": ["<all_urls>"]
     }
   ]
 }

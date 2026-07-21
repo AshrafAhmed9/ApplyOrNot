@@ -27,11 +27,34 @@ async function checkRateLimit(env, ip, bucket, limit) {
   return true;
 }
 
-async function callGemini(env, systemPrompt, userContent) {
+/** Extracts a JSON object from text that may have stray preamble/trailing text around it. */
+function extractJSON(text) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) throw new Error("No JSON object found in model output");
+  return JSON.parse(text.slice(start, end + 1));
+}
+
+async function callGemini(env, systemPrompt, userContent, maxOutputTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
   const body = {
-    contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${userContent}` }] }],
-    generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+    // systemInstruction is Gemini's dedicated channel for the system prompt — keeping it
+    // out of the user turn's `contents` is what actually suppresses conversational preamble
+    // ("Here is the JSON:") reliably; concatenating it into the user message (the previous
+    // approach) let the model treat the whole thing as one blob and occasionally add filler.
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: userContent }] }],
+    // thinkingBudget: 0 disables Gemini 2.5's internal "thinking" pass, which otherwise
+    // consumes output tokens (and wall-clock time) BEFORE the model even starts writing
+    // the actual JSON — with a small maxOutputTokens cap, thinking alone can eat the whole
+    // budget and truncate the real response. Disabling it is the single biggest lever on
+    // latency for this task (a screening judgment doesn't need visible chain-of-thought).
+    generationConfig: {
+      responseMimeType: "application/json",
+      temperature: 0.2,
+      maxOutputTokens,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   };
   const res = await fetch(url, {
     method: "POST",
@@ -45,7 +68,14 @@ async function callGemini(env, systemPrompt, userContent) {
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
-  return JSON.parse(text);
+  // Resilient parse: JSON mode + systemInstruction should always yield clean JSON, but if a
+  // stray preamble/trailing sentence ever slips through, extract the embedded object rather
+  // than hard-failing the whole request.
+  try {
+    return JSON.parse(text);
+  } catch {
+    return extractJSON(text);
+  }
 }
 
 function buildVerdictUserContent(profile, preferences, jdText) {
@@ -71,7 +101,8 @@ async function handleVerdict(req, env, ip) {
   const userContent = buildVerdictUserContent(profile, preferences || {}, trimmedJD);
 
   try {
-    const verdict = await callGemini(env, VERDICT_SYSTEM_PROMPT, userContent);
+    // Small cap: the leaner {decision, confidence, reason, gaps} schema needs little room.
+    const verdict = await callGemini(env, VERDICT_SYSTEM_PROMPT, userContent, 220);
     return json(verdict);
   } catch (err) {
     return json({ error: String(err.message || err) }, 502);
@@ -87,7 +118,9 @@ async function handleProfile(req, env, ip) {
 
   const trimmed = truncate(resumeText, 8000);
   try {
-    const profile = await callGemini(env, PROFILE_SYSTEM_PROMPT, trimmed);
+    // Larger cap than the verdict: skills/notableProjects arrays need more room, but this
+    // still bounds worst-case generation time for very long resumes.
+    const profile = await callGemini(env, PROFILE_SYSTEM_PROMPT, trimmed, 500);
     return json(profile);
   } catch (err) {
     return json({ error: String(err.message || err) }, 502);
