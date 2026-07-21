@@ -255,13 +255,18 @@
 
   async function getProfile() {
     const { profile, preferences } = await chrome.storage.local.get(["profile", "preferences"]);
-    return { profile, preferences: preferences || { targetMin: 0, targetMax: 2 } };
+    // Default matches the popup's displayed default (0–1) so an untouched setup judges
+    // against the same range the UI shows.
+    return { profile, preferences: preferences || { targetMin: 0, targetMax: 1 } };
   }
 
   /** Called on load and on SPA navigation to a new listing. Makes no network call — only
    *  checks local storage for a profile, then shows either the empty state or the idle pill. */
   async function resetToIdle() {
     if (!overlayEnabled) return;
+    // A new listing is a fresh start — clear any collapsed state left over from a previous
+    // verdict card, otherwise render() would draw the idle pill in its collapsed (empty) form.
+    collapsed = false;
     const { profile } = await getProfile();
     if (!profile) {
       renderNoProfile();

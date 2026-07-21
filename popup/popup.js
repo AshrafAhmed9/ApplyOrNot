@@ -140,6 +140,9 @@ async function loadPreferences() {
   document.getElementById("range-min").value = p.targetMin;
   document.getElementById("range-max").value = p.targetMax;
   updateRangeLabel();
+  // Persist the default on first run so the verdict path and the UI always agree, even if
+  // the user never touches the slider (the "change" event that saves it wouldn't fire).
+  if (!preferences) await savePreferences();
 }
 
 document.getElementById("range-min").addEventListener("input", () => { updateRangeLabel(); });
