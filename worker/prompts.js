@@ -1,35 +1,69 @@
 // Prompts live server-side (not in the extension) so they can be tuned/improved without
 // shipping a new extension version, and so the extension client stays a thin pass-through.
+//
+// The verdict is a TWO-STAGE decision, run as two separate model calls (see worker/index.js):
+//   Stage 1 — DETECT: "is this page a real job posting?" — run WITHOUT the candidate profile in
+//     context, so the model physically cannot use topical overlap with the candidate's own
+//     skills/projects as (false) evidence that a page is a job posting. If not a posting → NO_JD,
+//     and Stage 2 never runs.
+//   Stage 2 — FIT: "APPLY or SKIP?" — only for text Stage 1 confirmed is a genuine posting.
+// Splitting them is what makes JD-detection reliable: entangling the two in one call let the
+// APPLY-bias and the resume contaminate the detection step.
 
+// ---------------- Stage 1: job-posting detection (profile-blind) ----------------
+export const DETECT_SYSTEM_PROMPT = `You classify a single web page. You are given the page title and the text extracted from the page. Decide EXACTLY ONE thing: is this page a genuine JOB POSTING — one specific open position, published by or on behalf of an employer, that a real person could apply to and be hired for?
+
+A genuine job posting has HIRING STRUCTURE. Look for concrete signs such as:
+- an employer/organization that is hiring, and a specific role/title being filled;
+- responsibilities, duties, or requirements addressed to a prospective hire ("you will…", "we're looking for…", "responsibilities include…", "required qualifications…");
+- application mechanics (an Apply action, how to apply, employment type, salary/benefits, location or onsite/remote).
+
+Answer FALSE if the page is any of:
+- a code repository, README, or project/documentation page describing software — even software about hiring, recruiting, or evaluating candidates, and even if it uses words like "role", "candidate", "requirements", or "evaluation";
+- product/marketing pages, articles, blog posts, homepages, dashboards;
+- search-result or listing-index pages that are not one specific position;
+- profiles, about pages, or any page that merely mentions jobs, skills, or technologies without offering one specific position to apply to.
+
+Hard rules:
+- Judge ONLY from the page's own title and text. Never imagine a job the page "could" relate to.
+- Subject-matter or technology overlap with any particular person's background is IRRELEVANT — you have no candidate information here, and even if a page is about the exact same technology someone knows, that is not a job posting unless it has hiring structure.
+- Require positive evidence of hiring structure. If it is absent, weak, or unclear, answer FALSE.
+
+Output JSON only: {"isJobPosting": true} or {"isJobPosting": false}. No other text.`;
+
+export const DETECT_FEW_SHOT = [
+  {
+    input: { title: "Backend Engineer (New Grad) — Acme Corp", text: "About the role: build scalable APIs and async processing. Responsibilities: you will design services, work with databases, deploy to cloud. Requirements: 0-2 years. Apply now." },
+    output: { isJobPosting: true },
+  },
+  {
+    input: { title: "ApplyOrNot", text: "The role description is for an AI recruiter tool, not a job opening. The candidate's profile is used as input for the tool's evaluation process." },
+    output: { isJobPosting: false },
+  },
+  {
+    input: { title: "lsmtree-db — GitHub repository", text: "A persistent LSM-tree key-value store implemented from scratch, with crash-safety via write-ahead logging. Build instructions, benchmarks, design notes, license." },
+    output: { isJobPosting: false },
+  },
+  {
+    input: { title: "React – A JavaScript library for building user interfaces", text: "Documentation, tutorials, API reference. Get started, learn the fundamentals, community resources." },
+    output: { isJobPosting: false },
+  },
+];
+
+// ---------------- Stage 2: APPLY / SKIP fit judgment ----------------
+// A separate detector (Stage 1) has already confirmed the text is a genuine job posting, so this
+// prompt focuses on the fit decision. It keeps a brief NO_JD escape hatch purely as a secondary
+// safety net (belt-and-suspenders) for the rare case the detector was wrong.
 export const VERDICT_SYSTEM_PROMPT = `Role: ATS screening system for a hiring team, across ALL industries (not just tech).
 Task: decide if this candidate should spend time applying to this role.
 
-STEP 0 (always do this FIRST, as its own separate check, before reading the candidate profile
-at all): does the text contain POSITIVE, EXPLICIT evidence of a real job posting — specifically
-an employer/organization offering to hire someone, PLUS responsibilities or requirements framed
-as what that hired person would do (e.g. "you will...", "we are looking for...", "responsibilities
-include...", an application/apply instruction, a job title + company)? Decide this from the JD
-text's own structure alone — do NOT consult the candidate's profile/skills to make this call.
-- Default to "NO_JD" unless that positive evidence is clearly present. Silence on hiring structure
-  means NO_JD — do not assume a JD exists just because the topic is plausible for one.
-- Topical/technical overlap with the candidate's skills or projects is NEVER evidence of a job
-  posting by itself. A README, blog post, or documentation page describing a database, algorithm,
-  or codebase — even one built with the exact same techniques as something in the candidate's
-  resume (e.g. both describe an LSM-tree, a distributed queue, a crash-safety mechanism) — is
-  still NOT a job posting merely because the subject matter overlaps. Matching topics between a
-  candidate's project and a page's subject happens constantly and must be ignored for this check;
-  only actual hiring structure (an employer, a role, requirements aimed at an applicant) counts.
-- A page merely containing words like "role", "candidate", "requirements", or "evaluation" is not
-  enough either — e.g. a page describing an AI/recruiting/HR TOOL or PRODUCT that itself evaluates
-  candidates is NOT a job posting, even though its own description is full of hiring-sounding
-  vocabulary.
-This NO_JD check is a hard gate, resolved BEFORE any other reasoning. The "borderline → APPLY"
-calibration rule later in this prompt applies ONLY to the APPLY-vs-SKIP fit decision for a
-genuine job posting — it must NEVER be used to justify defaulting to APPLY when the text isn't a
-job posting at all. If you find yourself citing the candidate's own skills/projects as evidence
-the text IS a job posting, that is backwards reasoning — the decision MUST be "NO_JD".
+The input text has already been confirmed to be a genuine job posting by a separate check, so
+judge fit. (Secondary safety net only: if the text is somehow clearly NOT a job posting — a
+README, product/tool description, article, or docs page with no employer and no position to apply
+to — return decision "NO_JD" with empty reason/gaps. Do not use this as an excuse to second-guess
+a real posting.)
 
-If (and only if) it is a genuine job posting, judge in priority order:
+Judge fit in priority order:
 1. Experience/seniority fit vs role level. Fresher ≠ apply to 5+yr or Staff/Principal roles. Don't SKIP a "Senior"-titled role if the stated requirement is actually within reach.
 2. Hard gates: required degree/license/certification/work authorization/location the candidate explicitly can't meet — usually non-negotiable.
 3. Core capability fit: does real experience (skills/projects/domain) cover the role's needs? Credit equivalent/differently-worded experience (e.g. "built a distributed task queue" = "distributed systems experience"). Reason about capability, not literal keywords.
@@ -50,10 +84,8 @@ Output JSON only, this exact shape:
 {"decision":"APPLY"|"SKIP"|"NO_JD","confidence":"high"|"medium"|"low","reason":"one short factual sentence stating the decision and its basis","gaps":["short factual phrase",...]}
 gaps: up to 3, real concerns/missing hard requirements only, empty array if none. No markdown, no text outside the JSON object.`;
 
-// A few calibrated examples to keep the APPLY/SKIP/NO_JD bar consistent across very different
-// fields. Kept terse (short JD strings, few skills) to minimize the fixed per-call token cost —
-// these are appended once to the static system prompt (see VERDICT_SYSTEM_PROMPT_FULL below),
-// not resent as part of the varying user content.
+// Terse calibration examples for the APPLY/SKIP fit bar. NO_JD examples live with the detector
+// (Stage 1) instead — this stage is reached only for confirmed postings.
 export const VERDICT_FEW_SHOT = [
   {
     input: {
@@ -97,41 +129,6 @@ export const VERDICT_FEW_SHOT = [
       gaps: ["Below the preferred experience mark (1 year vs 2 preferred)"],
     },
   },
-  {
-    input: {
-      profile: { experienceYears: 2, level: "1-2 years", domains: ["software_engineering"], skills: ["TypeScript", "Node.js"] },
-      preferences: { targetMin: 0, targetMax: 2 },
-      title: "ApplyOrNot — GitHub repository",
-      jd: "A Chrome extension that reads job descriptions. Installation instructions, contributing guide, license.",
-    },
-    output: { decision: "NO_JD", confidence: "high", reason: "", gaps: [] },
-  },
-  {
-    // The exact failure mode this example guards against: text saturated with hiring vocabulary
-    // ("role", "candidate", "evaluation") that is actually describing a TOOL, not an open
-    // position. Must be NO_JD even though it reads almost like a job posting.
-    input: {
-      profile: { experienceYears: 1, level: "1-2 years", domains: ["software_engineering"], skills: ["Python", "LLM integration"] },
-      preferences: { targetMin: 0, targetMax: 2 },
-      title: "ApplyOrNot",
-      jd: "The role description is for an AI recruiter tool, not a job opening. The candidate's profile is being used as input for the tool's evaluation process.",
-    },
-    output: { decision: "NO_JD", confidence: "high", reason: "", gaps: [] },
-  },
-  {
-    // The harder failure mode: a technical README with ZERO hiring vocabulary, but whose SUBJECT
-    // happens to match the candidate's own project (both an LSM-tree database). Topical overlap
-    // with the candidate's skills must never be treated as job-posting evidence — this page has
-    // no employer, no responsibilities, no application instructions, so it is still NO_JD even
-    // though it reads like a perfect capability match.
-    input: {
-      profile: { experienceYears: 0, level: "fresher", domains: ["software_engineering"], skills: ["Go", "built a persistent LSM-tree database from scratch with crash-safety"] },
-      preferences: { targetMin: 0, targetMax: 1 },
-      title: "lsmtree-db — GitHub repository",
-      jd: "A persistent LSM-tree key-value store implemented from scratch, with crash-safety via write-ahead logging. Build instructions, benchmarks, design notes, license.",
-    },
-    output: { decision: "NO_JD", confidence: "high", reason: "", gaps: [] },
-  },
 ];
 
 function formatFewShot(examples) {
@@ -140,10 +137,14 @@ function formatFewShot(examples) {
     .join("\n\n");
 }
 
-// The few-shot examples are static and identical on every call, so they're appended directly to
-// the system prompt (part of `systemInstruction`) rather than the varying per-call user content.
-// This keeps the dynamic user turn down to just the real case, and puts the large fixed block in
-// the stable prefix, where providers with implicit prompt caching can reuse it across calls.
+// Static few-shot blocks are appended to their system prompts (part of `systemInstruction`)
+// rather than the varying per-call user content — keeps the dynamic user turn small and the
+// large fixed block in the stable prefix, where implicit prompt caching can reuse it.
+export const DETECT_SYSTEM_PROMPT_FULL = `${DETECT_SYSTEM_PROMPT}
+
+Examples:
+${formatFewShot(DETECT_FEW_SHOT)}`;
+
 export const VERDICT_SYSTEM_PROMPT_FULL = `${VERDICT_SYSTEM_PROMPT}
 
 Calibration examples:

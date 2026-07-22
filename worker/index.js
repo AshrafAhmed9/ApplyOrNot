@@ -2,7 +2,7 @@
 // sees it. Two routes: POST /profile (resume text -> candidate profile) and POST /verdict
 // (candidate profile + preferences + JD text -> APPLY/SKIP decision). Both are a single
 // Gemini call each — no multi-agent chaining, to keep latency and token cost low.
-import { VERDICT_SYSTEM_PROMPT_FULL, PROFILE_SYSTEM_PROMPT } from "./prompts.js";
+import { DETECT_SYSTEM_PROMPT_FULL, VERDICT_SYSTEM_PROMPT_FULL, PROFILE_SYSTEM_PROMPT } from "./prompts.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -97,9 +97,16 @@ async function callGemini(env, systemPrompt, userContent, maxOutputTokens) {
   }
 }
 
-// Few-shot examples now live in the static system prompt (VERDICT_SYSTEM_PROMPT_FULL) — the
-// per-call user content is just the real case, ordered static-ish fields (title, profile) before
-// the varying JD text.
+// Stage 1 (detection) sees ONLY the page title + text — never the candidate profile — so the
+// model cannot use topical overlap with the candidate's own skills/projects as (false) evidence
+// that a page is a job posting.
+function buildDetectUserContent(title, jdText) {
+  return `Input: ${JSON.stringify({ title: title || "", text: jdText })}\nOutput:`;
+}
+
+// Stage 2 (fit) — few-shot examples live in the static system prompt (VERDICT_SYSTEM_PROMPT_FULL),
+// so the per-call user content is just the real case, ordered static-ish fields (title, profile)
+// before the varying JD text.
 function buildVerdictUserContent(profile, preferences, title, jdText) {
   return `Input: ${JSON.stringify({ title: title || "", profile, preferences, jd: jdText })}\nOutput:`;
 }
@@ -117,10 +124,19 @@ async function handleVerdict(req, env, ip) {
 
   // Cap input size defensively — keeps token cost bounded even if scraper trimming misses something.
   const trimmedJD = truncate(jdText, 6000);
-  const userContent = buildVerdictUserContent(profile, preferences || {}, title, trimmedJD);
 
   try {
-    // Small cap: the leaner {decision, confidence, reason, gaps} schema needs little room.
+    // Stage 1 — profile-blind job-posting detection. If this isn't a posting, we return NO_JD
+    // and never run the fit call (cheaper on non-job pages, and structurally immune to the
+    // resume biasing detection).
+    const detect = await callGemini(env, DETECT_SYSTEM_PROMPT_FULL, buildDetectUserContent(title, trimmedJD), 20);
+    if (detect?.isJobPosting !== true) {
+      return json({ decision: "NO_JD", confidence: "high", reason: "", gaps: [], model: env.GEMINI_MODEL });
+    }
+
+    // Stage 2 — APPLY/SKIP fit. Small cap: the leaner {decision, confidence, reason, gaps} schema
+    // needs little room.
+    const userContent = buildVerdictUserContent(profile, preferences || {}, title, trimmedJD);
     const verdict = await callGemini(env, VERDICT_SYSTEM_PROMPT_FULL, userContent, 220);
     return json({ ...verdict, model: env.GEMINI_MODEL });
   } catch (err) {
