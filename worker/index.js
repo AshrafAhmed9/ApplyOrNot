@@ -97,6 +97,21 @@ async function callGemini(env, systemPrompt, userContent, maxOutputTokens) {
   }
 }
 
+/** Maps a caught error to a clean, actionable client message. A 429 that survives the retry in
+ *  callGemini means Gemini's OWN shared quota/rate limit (the one API key every free-tier user
+ *  shares) is exhausted right now — that is a distinct, common, and fixable situation, so it gets
+ *  its own specific message pointing at the BYOK escape hatch, instead of being lumped in with
+ *  genuine outages (5xx) under a vague "temporarily unavailable." */
+function upstreamErrorMessage(err) {
+  if (err.status === 429) {
+    return {
+      message: "The free shared AI service has hit its usage limit for the moment. Add your own free API key in Settings (Gemini, OpenAI, Anthropic, Groq, or OpenRouter all work) to keep going without waiting.",
+      status: 503,
+    };
+  }
+  return { message: "The AI service is temporarily unavailable. Please try again in a moment.", status: 502 };
+}
+
 // Stage 1 (detection) sees ONLY the page title + text — never the candidate profile — so the
 // model cannot use topical overlap with the candidate's own skills/projects as (false) evidence
 // that a page is a job posting.
@@ -141,9 +156,11 @@ async function handleVerdict(req, env, ip) {
     return json({ ...verdict, model: env.GEMINI_MODEL });
   } catch (err) {
     // Never leak raw upstream error text (status codes, provider internals) to the client —
-    // log the real detail server-side (visible via `wrangler tail`) and return generic copy.
+    // log the real detail server-side (visible via `wrangler tail`) and return sanitized,
+    // actionable copy instead (see upstreamErrorMessage).
     console.error("handleVerdict failed:", err.message || err);
-    return json({ error: "The AI service is temporarily unavailable. Please try again in a moment." }, 502);
+    const { message, status } = upstreamErrorMessage(err);
+    return json({ error: message }, status);
   }
 }
 
@@ -162,7 +179,8 @@ async function handleProfile(req, env, ip) {
     return json(profile);
   } catch (err) {
     console.error("handleProfile failed:", err.message || err);
-    return json({ error: "The AI service is temporarily unavailable. Please try again in a moment." }, 502);
+    const { message, status } = upstreamErrorMessage(err);
+    return json({ error: message }, status);
   }
 }
 
