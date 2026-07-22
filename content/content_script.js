@@ -144,8 +144,8 @@
   function footerHtml(withReport) {
     return `<div class="aon-footer">
       <a href="#" data-aon-rate target="_blank" rel="noopener">★ Rate</a>
-      <span class="aon-sep">·</span>
-      <a href="#" data-aon-feedback target="_blank" rel="noopener">Feedback</a>
+      <span class="aon-sep" data-aon-rate-sep>·</span>
+      <a href="#" data-aon-feedback target="_blank" rel="noopener">★ Feedback</a>
       ${
         withReport
           ? `<span class="aon-sep">·</span><a href="#" data-aon-report target="_blank" rel="noopener">Report</a>`
@@ -276,13 +276,19 @@
 
   function wireFooterLinks(root) {
     const rate = root.querySelector("[data-aon-rate]");
+    const rateSep = root.querySelector("[data-aon-rate-sep]");
     const feedback = root.querySelector("[data-aon-feedback]");
     const report = root.querySelector("[data-aon-report]");
     // The review URL 404s until the extension is actually published and assigned a real ID —
-    // hide the link entirely rather than pointing at a broken page.
+    // hide the link (and its separator, so Feedback doesn't show a dangling leading "·") rather
+    // than pointing at a broken page.
     if (rate) {
-      if (EXTENSION_ID) rate.href = `https://chromewebstore.google.com/detail/${EXTENSION_ID}/reviews`;
-      else rate.style.display = "none";
+      if (EXTENSION_ID) {
+        rate.href = `https://chromewebstore.google.com/detail/${EXTENSION_ID}/reviews`;
+      } else {
+        rate.style.display = "none";
+        if (rateSep) rateSep.style.display = "none";
+      }
     }
     if (feedback) feedback.href = "mailto:ashrafahmed1232@gmail.com?subject=ApplyOrNot%20feedback";
     if (report) {

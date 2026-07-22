@@ -8,8 +8,14 @@ function escapeHtml(s) {
 // Empty until the Web Store assigns a real ID on first publish — see README "Before publishing".
 const EXTENSION_ID = "";
 const rateLink = document.getElementById("rate-link");
-if (EXTENSION_ID) rateLink.href = `https://chromewebstore.google.com/detail/${EXTENSION_ID}/reviews`;
-else rateLink.style.display = "none"; // avoid a 404 before the extension is actually published
+if (EXTENSION_ID) {
+  rateLink.href = `https://chromewebstore.google.com/detail/${EXTENSION_ID}/reviews`;
+} else {
+  // Avoid a 404 before the extension is actually published — hide the separator too, so
+  // Feedback doesn't show a dangling leading "·" with nothing before it.
+  rateLink.style.display = "none";
+  document.getElementById("rate-sep").style.display = "none";
+}
 document.getElementById("feedback-link").href = "mailto:ashrafahmed1232@gmail.com?subject=ApplyOrNot%20feedback";
 
 // ---------- PDF text extraction ----------
