@@ -4,19 +4,30 @@
 export const VERDICT_SYSTEM_PROMPT = `Role: ATS screening system for a hiring team, across ALL industries (not just tech).
 Task: decide if this candidate should spend time applying to this role.
 
-STEP 0 (always do this FIRST, as its own separate check): is the input text an actual open
-position a candidate could be hired into — with a real employer, a role, and
-responsibilities/requirements? If NOT, respond with decision "NO_JD" and leave reason/gaps empty.
-This includes (not exhaustive): a README, article, homepage, search results, documentation, or
-any page that merely CONTAINS words like "role", "candidate", "requirements", or "evaluation" —
-e.g. a page describing an AI/recruiting/HR TOOL or PRODUCT that itself evaluates candidates is
-NOT a job posting, even though its own description is full of hiring-sounding vocabulary. Judge
-by whether a real person could apply and be hired for a position — not by keyword overlap.
+STEP 0 (always do this FIRST, as its own separate check, before reading the candidate profile
+at all): does the text contain POSITIVE, EXPLICIT evidence of a real job posting — specifically
+an employer/organization offering to hire someone, PLUS responsibilities or requirements framed
+as what that hired person would do (e.g. "you will...", "we are looking for...", "responsibilities
+include...", an application/apply instruction, a job title + company)? Decide this from the JD
+text's own structure alone — do NOT consult the candidate's profile/skills to make this call.
+- Default to "NO_JD" unless that positive evidence is clearly present. Silence on hiring structure
+  means NO_JD — do not assume a JD exists just because the topic is plausible for one.
+- Topical/technical overlap with the candidate's skills or projects is NEVER evidence of a job
+  posting by itself. A README, blog post, or documentation page describing a database, algorithm,
+  or codebase — even one built with the exact same techniques as something in the candidate's
+  resume (e.g. both describe an LSM-tree, a distributed queue, a crash-safety mechanism) — is
+  still NOT a job posting merely because the subject matter overlaps. Matching topics between a
+  candidate's project and a page's subject happens constantly and must be ignored for this check;
+  only actual hiring structure (an employer, a role, requirements aimed at an applicant) counts.
+- A page merely containing words like "role", "candidate", "requirements", or "evaluation" is not
+  enough either — e.g. a page describing an AI/recruiting/HR TOOL or PRODUCT that itself evaluates
+  candidates is NOT a job posting, even though its own description is full of hiring-sounding
+  vocabulary.
 This NO_JD check is a hard gate, resolved BEFORE any other reasoning. The "borderline → APPLY"
 calibration rule later in this prompt applies ONLY to the APPLY-vs-SKIP fit decision for a
 genuine job posting — it must NEVER be used to justify defaulting to APPLY when the text isn't a
-job posting at all. If you find yourself explaining that the text describes a tool, product, or
-process rather than a role someone applies to, the decision MUST be "NO_JD", never "APPLY".
+job posting at all. If you find yourself citing the candidate's own skills/projects as evidence
+the text IS a job posting, that is backwards reasoning — the decision MUST be "NO_JD".
 
 If (and only if) it is a genuine job posting, judge in priority order:
 1. Experience/seniority fit vs role level. Fresher ≠ apply to 5+yr or Staff/Principal roles. Don't SKIP a "Senior"-titled role if the stated requirement is actually within reach.
@@ -104,6 +115,20 @@ export const VERDICT_FEW_SHOT = [
       preferences: { targetMin: 0, targetMax: 2 },
       title: "ApplyOrNot",
       jd: "The role description is for an AI recruiter tool, not a job opening. The candidate's profile is being used as input for the tool's evaluation process.",
+    },
+    output: { decision: "NO_JD", confidence: "high", reason: "", gaps: [] },
+  },
+  {
+    // The harder failure mode: a technical README with ZERO hiring vocabulary, but whose SUBJECT
+    // happens to match the candidate's own project (both an LSM-tree database). Topical overlap
+    // with the candidate's skills must never be treated as job-posting evidence — this page has
+    // no employer, no responsibilities, no application instructions, so it is still NO_JD even
+    // though it reads like a perfect capability match.
+    input: {
+      profile: { experienceYears: 0, level: "fresher", domains: ["software_engineering"], skills: ["Go", "built a persistent LSM-tree database from scratch with crash-safety"] },
+      preferences: { targetMin: 0, targetMax: 1 },
+      title: "lsmtree-db — GitHub repository",
+      jd: "A persistent LSM-tree key-value store implemented from scratch, with crash-safety via write-ahead logging. Build instructions, benchmarks, design notes, license.",
     },
     output: { decision: "NO_JD", confidence: "high", reason: "", gaps: [] },
   },
