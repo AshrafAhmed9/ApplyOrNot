@@ -164,6 +164,7 @@
 #aon-root .aon-footer a { color: #0a84ff; text-decoration: none; font-weight: 500; }
 #aon-root .aon-footer a:hover { text-decoration: underline; }
 #aon-root .aon-sep { color: #c7c7cc; }
+#aon-root .aon-model-label { padding: 0 16px; font-size: 10px; color: #a1a1a6; }
 
 /* Dark mode */
 @media (prefers-color-scheme: dark) {

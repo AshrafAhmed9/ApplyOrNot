@@ -5,8 +5,12 @@ function escapeHtml(s) {
 }
 
 // ---------- Footer links ----------
-document.getElementById("rate-link").href = "https://chromewebstore.google.com/detail/YOUR_EXTENSION_ID/reviews";
-document.getElementById("feedback-link").href = "mailto:feedback@example.com?subject=ApplyOrNot%20feedback";
+// Empty until the Web Store assigns a real ID on first publish — see README "Before publishing".
+const EXTENSION_ID = "";
+const rateLink = document.getElementById("rate-link");
+if (EXTENSION_ID) rateLink.href = `https://chromewebstore.google.com/detail/${EXTENSION_ID}/reviews`;
+else rateLink.style.display = "none"; // avoid a 404 before the extension is actually published
+document.getElementById("feedback-link").href = "mailto:ashrafahmed1232@gmail.com?subject=ApplyOrNot%20feedback";
 
 // ---------- PDF text extraction ----------
 async function extractPdfText(file) {
@@ -17,6 +21,9 @@ async function extractPdfText(file) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     text += content.items.map((it) => it.str).join(" ") + "\n";
+  }
+  if (text.trim().length < 40) {
+    throw new Error("This looks like a scanned or image-based PDF — no selectable text found. Try a text-based PDF export.");
   }
   return text;
 }
@@ -50,14 +57,40 @@ function renderProfile(profile) {
   card.hidden = false;
 
   document.getElementById("pc-filename").textContent = profile.fileName || "Resume";
-  document.getElementById("pc-level").textContent = profile.level || "";
-  document.getElementById("pc-education").textContent = profile.education || "";
+  document.getElementById("pc-level").value = profile.level || "fresher";
+  document.getElementById("pc-education").value = profile.education || "";
   document.getElementById("pc-domains").textContent = (profile.domains || [])
     .map((d) => DOMAIN_LABELS[d] || d)
     .join(" · ");
 
   renderSkillTags(profile.skills || []);
 }
+
+// Roughly maps a level back to a representative experienceYears figure — the AI-extracted
+// experienceYears figure is what actually drives every future verdict, so a manual level
+// correction (the AI's original estimate was wrong) must also fix that number, not just the label.
+const LEVEL_TO_YEARS = {
+  "fresher": 0,
+  "1-2 years": 1.5,
+  "3-5 years": 4,
+  "5+ years": 6,
+  "senior/lead": 8,
+};
+
+document.getElementById("pc-level").addEventListener("change", async (e) => {
+  const profile = await getProfile();
+  if (!profile) return;
+  profile.level = e.target.value;
+  profile.experienceYears = LEVEL_TO_YEARS[e.target.value] ?? profile.experienceYears;
+  await chrome.storage.local.set({ profile });
+});
+
+document.getElementById("pc-education").addEventListener("change", async (e) => {
+  const profile = await getProfile();
+  if (!profile) return;
+  profile.education = e.target.value.trim();
+  await chrome.storage.local.set({ profile });
+});
 
 function renderSkillTags(skills) {
   const container = document.getElementById("pc-skills");
@@ -67,7 +100,7 @@ function renderSkillTags(skills) {
   container.querySelectorAll("[data-remove]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const profile = await getProfile();
-      if (!profile) return;
+      if (!profile || !Array.isArray(profile.skills)) return;
       profile.skills.splice(Number(btn.dataset.remove), 1);
       await chrome.storage.local.set({ profile });
       renderSkillTags(profile.skills);

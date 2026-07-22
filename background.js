@@ -9,10 +9,8 @@ importScripts("lib/prompts.js", "lib/llm.js");
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type !== "EXTRACT_PROFILE") return false;
 
-  console.log("[ApplyOrNot bg] EXTRACT_PROFILE received, resumeText length:", msg.resumeText?.length);
   LLMLib.extractProfile(msg.resumeText)
     .then(async (profile) => {
-      console.log("[ApplyOrNot bg] profile extracted OK", profile);
       profile.fileName = msg.fileName;
       await chrome.storage.local.set({ profile });
       sendResponse({ ok: true, profile });

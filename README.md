@@ -50,6 +50,10 @@ The candidate **profile** (not the raw resume) and the trimmed JD text are sent 
 
 ## Before publishing to the Chrome Web Store
 - Deploy the Worker and set the real `WORKER_BASE_URL` in `lib/llm.js` (see step 1 above).
-- Set the real Chrome Web Store review URL and feedback email in `content/content_script.js` (`wireFooterLinks`) and `popup/popup.js` — currently placeholders (`YOUR_EXTENSION_ID`, `feedback@example.com`).
-- Write the privacy policy disclosing that profile + JD text are sent to Google's Gemini API.
+- Privacy policy is written (`PRIVACY.md`) — host it at a public URL (e.g. GitHub raw link, or a
+  GitHub Pages page) and paste that URL into the Chrome Web Store listing's privacy policy field.
+- Set `EXTENSION_ID` (in `content/content_script.js` and `popup/popup.js`) to the real ID Chrome
+  assigns after your **first** submission, so the Rate link works — it's hidden by default until set.
+- Submission copy (listing description, category, permission justification, data-use disclosure
+  answers) is in `STORE_LISTING.md` — use it directly in the Web Store submission form.
 - `manifest.json` requests `<all_urls>` (so the idle pill can appear on any job site, not just a fixed list) — this is a broad permission that Chrome Web Store review scrutinizes closely. Be ready to justify it in the listing: the content script only renders a passive UI element and never sends data anywhere until the user explicitly clicks "Check fit".

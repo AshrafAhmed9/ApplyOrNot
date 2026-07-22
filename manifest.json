@@ -2,8 +2,10 @@
   "manifest_version": 3,
   "name": "ApplyOrNot — AI Recruiter for Job Listings",
   "short_name": "ApplyOrNot",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "An AI recruiter in your browser: reads the job listing and your resume, then tells you plainly whether it's worth applying — with reasons, not a score.",
+  "author": "Ashraf Ahmed",
+  "homepage_url": "https://github.com/AshrafAhmed9/ApplyOrNot",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -24,7 +26,11 @@
   "host_permissions": [
     "<all_urls>",
     "https://*.workers.dev/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.groq.com/*",
+    "https://openrouter.ai/*"
   ],
   "content_scripts": [
     {

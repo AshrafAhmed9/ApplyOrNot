@@ -22,9 +22,17 @@
       <div id="profile-card" hidden>
         <div class="pc-top">
           <span class="pc-label" id="pc-filename"></span>
-          <span class="pc-level" id="pc-level"></span>
         </div>
-        <div class="pc-row" id="pc-education"></div>
+        <label class="field-label">Experience level <span class="field-hint">(edit if the AI got it wrong)</span></label>
+        <select id="pc-level">
+          <option value="fresher">Fresher</option>
+          <option value="1-2 years">1-2 years</option>
+          <option value="3-5 years">3-5 years</option>
+          <option value="5+ years">5+ years</option>
+          <option value="senior/lead">Senior/Lead</option>
+        </select>
+        <label class="field-label">Education</label>
+        <input id="pc-education" type="text" placeholder="Highest degree + field" />
         <div class="pc-row" id="pc-domains"></div>
         <label class="field-label">Skills detected</label>
         <div id="pc-skills" class="tags"></div>
@@ -49,9 +57,9 @@
     </section>
 
     <section id="settings-section">
-      <label class="field-label">Your own Gemini API key (optional)</label>
-      <input id="byok-input" type="password" placeholder="Paste a free key from aistudio.google.com/apikey" />
-      <div class="empty-sub">Bypasses the shared daily limit — calls go straight from your browser to Gemini. Leave blank to use the free shared service.</div>
+      <label class="field-label">Your own API key (optional)</label>
+      <input id="byok-input" type="password" placeholder="Paste a Gemini, OpenAI, Anthropic, Groq, or OpenRouter key" />
+      <div class="empty-sub">Bypasses the shared daily limit — the provider is auto-detected from your key, and calls go straight from your browser to it. Leave blank to use the free shared service.</div>
     </section>
   </main>
 

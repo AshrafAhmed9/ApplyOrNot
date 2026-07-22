@@ -2,7 +2,7 @@
 // sees it. Two routes: POST /profile (resume text -> candidate profile) and POST /verdict
 // (candidate profile + preferences + JD text -> APPLY/SKIP decision). Both are a single
 // Gemini call each — no multi-agent chaining, to keep latency and token cost low.
-import { VERDICT_SYSTEM_PROMPT, VERDICT_FEW_SHOT, PROFILE_SYSTEM_PROMPT } from "./prompts.js";
+import { VERDICT_SYSTEM_PROMPT_FULL, PROFILE_SYSTEM_PROMPT } from "./prompts.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +35,9 @@ function extractJSON(text) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function callGemini(env, systemPrompt, userContent, maxOutputTokens) {
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+async function callGeminiOnce(env, systemPrompt, userContent, maxOutputTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`;
   const body = {
     // systemInstruction is Gemini's dedicated channel for the system prompt — keeping it
@@ -63,7 +65,9 @@ async function callGemini(env, systemPrompt, userContent, maxOutputTokens) {
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(`Gemini API error ${res.status}: ${errText.slice(0, 300)}`);
+    const err = new Error(`Gemini API error ${res.status}: ${errText.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
   }
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -78,11 +82,26 @@ async function callGemini(env, systemPrompt, userContent, maxOutputTokens) {
   }
 }
 
-function buildVerdictUserContent(profile, preferences, jdText) {
-  const examples = VERDICT_FEW_SHOT.map(
-    (ex, i) => `Example ${i + 1}:\nInput: ${JSON.stringify(ex.input)}\nOutput: ${JSON.stringify(ex.output)}`
-  ).join("\n\n");
-  return `${examples}\n\nNow decide for this real case:\nInput: ${JSON.stringify({ profile, preferences, jd: jdText })}\nOutput:`;
+/** One retry, short backoff, only on transient failures (network throw or 429/5xx) — a
+ *  deterministic client error (400/401/403) is retried never, since retrying just burns time
+ *  and rate-limit budget on a request that will fail identically again. */
+async function callGemini(env, systemPrompt, userContent, maxOutputTokens) {
+  try {
+    return await callGeminiOnce(env, systemPrompt, userContent, maxOutputTokens);
+  } catch (err) {
+    const isTransient = err.status === undefined || TRANSIENT_STATUSES.has(err.status);
+    if (!isTransient) throw err;
+    console.error("Gemini call failed, retrying once:", err.message || err);
+    await new Promise((r) => setTimeout(r, 500));
+    return callGeminiOnce(env, systemPrompt, userContent, maxOutputTokens);
+  }
+}
+
+// Few-shot examples now live in the static system prompt (VERDICT_SYSTEM_PROMPT_FULL) — the
+// per-call user content is just the real case, ordered static-ish fields (title, profile) before
+// the varying JD text.
+function buildVerdictUserContent(profile, preferences, title, jdText) {
+  return `Input: ${JSON.stringify({ title: title || "", profile, preferences, jd: jdText })}\nOutput:`;
 }
 
 function truncate(text, maxChars) {
@@ -93,25 +112,28 @@ async function handleVerdict(req, env, ip) {
   if (!(await checkRateLimit(env, ip, "verdict", parseInt(env.DAILY_VERDICT_LIMIT, 10)))) {
     return json({ error: "Daily limit reached. Try again tomorrow, or add your own API key in settings." }, 429);
   }
-  const { profile, preferences, jdText } = await req.json();
+  const { profile, preferences, title, jdText } = await req.json();
   if (!profile || !jdText) return json({ error: "Missing profile or jdText" }, 400);
 
   // Cap input size defensively — keeps token cost bounded even if scraper trimming misses something.
   const trimmedJD = truncate(jdText, 6000);
-  const userContent = buildVerdictUserContent(profile, preferences || {}, trimmedJD);
+  const userContent = buildVerdictUserContent(profile, preferences || {}, title, trimmedJD);
 
   try {
     // Small cap: the leaner {decision, confidence, reason, gaps} schema needs little room.
-    const verdict = await callGemini(env, VERDICT_SYSTEM_PROMPT, userContent, 220);
-    return json(verdict);
+    const verdict = await callGemini(env, VERDICT_SYSTEM_PROMPT_FULL, userContent, 220);
+    return json({ ...verdict, model: env.GEMINI_MODEL });
   } catch (err) {
-    return json({ error: String(err.message || err) }, 502);
+    // Never leak raw upstream error text (status codes, provider internals) to the client —
+    // log the real detail server-side (visible via `wrangler tail`) and return generic copy.
+    console.error("handleVerdict failed:", err.message || err);
+    return json({ error: "The AI service is temporarily unavailable. Please try again in a moment." }, 502);
   }
 }
 
 async function handleProfile(req, env, ip) {
   if (!(await checkRateLimit(env, ip, "profile", parseInt(env.DAILY_PROFILE_LIMIT, 10)))) {
-    return json({ error: "Daily limit reached. Try again tomorrow." }, 429);
+    return json({ error: "Daily limit reached. Try again tomorrow, or add your own API key in settings." }, 429);
   }
   const { resumeText } = await req.json();
   if (!resumeText || resumeText.trim().length < 40) return json({ error: "Missing or too-short resumeText" }, 400);
@@ -123,7 +145,8 @@ async function handleProfile(req, env, ip) {
     const profile = await callGemini(env, PROFILE_SYSTEM_PROMPT, trimmed, 500);
     return json(profile);
   } catch (err) {
-    return json({ error: String(err.message || err) }, 502);
+    console.error("handleProfile failed:", err.message || err);
+    return json({ error: "The AI service is temporarily unavailable. Please try again in a moment." }, 502);
   }
 }
 

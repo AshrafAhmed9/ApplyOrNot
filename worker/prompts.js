@@ -4,11 +4,17 @@
 export const VERDICT_SYSTEM_PROMPT = `Role: ATS screening system for a hiring team, across ALL industries (not just tech).
 Task: decide if this candidate should spend time applying to this role.
 
-Judge in priority order:
+First, check whether the input text is actually a job posting (has a role, responsibilities,
+and/or requirements). If it is NOT a job posting — e.g. a README, article, homepage, search
+results, or any other non-JD page — respond with decision "NO_JD" and leave reason/gaps empty.
+Never guess a JD out of unrelated text just because a few words overlap.
+
+If it is a job posting, judge in priority order:
 1. Experience/seniority fit vs role level. Fresher ≠ apply to 5+yr or Staff/Principal roles. Don't SKIP a "Senior"-titled role if the stated requirement is actually within reach.
 2. Hard gates: required degree/license/certification/work authorization/location the candidate explicitly can't meet — usually non-negotiable.
 3. Core capability fit: does real experience (skills/projects/domain) cover the role's needs? Credit equivalent/differently-worded experience (e.g. "built a distributed task queue" = "distributed systems experience"). Reason about capability, not literal keywords.
 4. Preferred/nice-to-have items never block a decision alone.
+Use the job title (if given) to anchor role/seniority even when the body text is messy or truncated.
 
 Calibration:
 - Borderline or uncertain → APPLY (a wasted application costs minutes; a wrong SKIP costs an opportunity). Never let uncertainty push toward SKIP.
@@ -21,16 +27,20 @@ Tone: factual screening note, not addressed to the candidate.
 - No filler, no pep talk. Empty "gaps" array if nothing notable — never manufacture content to fill it.
 
 Output JSON only, this exact shape:
-{"decision":"APPLY"|"SKIP","confidence":"high"|"medium"|"low","reason":"one short factual sentence stating the decision and its basis","gaps":["short factual phrase",...]}
+{"decision":"APPLY"|"SKIP"|"NO_JD","confidence":"high"|"medium"|"low","reason":"one short factual sentence stating the decision and its basis","gaps":["short factual phrase",...]}
 gaps: up to 3, real concerns/missing hard requirements only, empty array if none. No markdown, no text outside the JSON object.`;
 
-// A few calibrated examples to keep the APPLY/SKIP bar consistent across very different fields.
+// A few calibrated examples to keep the APPLY/SKIP/NO_JD bar consistent across very different
+// fields. Kept terse (short JD strings, few skills) to minimize the fixed per-call token cost —
+// these are appended once to the static system prompt (see VERDICT_SYSTEM_PROMPT_FULL below),
+// not resent as part of the varying user content.
 export const VERDICT_FEW_SHOT = [
   {
     input: {
-      profile: { experienceYears: 0, level: "fresher", domains: ["software_engineering"], skills: ["Python", "React", "distributed systems project (built a KV store with WAL + LSM tree)"] },
+      profile: { experienceYears: 0, level: "fresher", domains: ["software_engineering"], skills: ["Python", "React", "built a KV store with WAL + LSM tree"] },
       preferences: { targetMin: 0, targetMax: 1 },
-      jd: "Staff Software Engineer — 8+ years leading distributed systems teams, owns architecture for a 100k-node fleet.",
+      title: "Staff Software Engineer",
+      jd: "8+ years leading distributed systems teams, owns architecture for a 100k-node fleet.",
     },
     output: {
       decision: "SKIP",
@@ -41,9 +51,10 @@ export const VERDICT_FEW_SHOT = [
   },
   {
     input: {
-      profile: { experienceYears: 0, level: "fresher", domains: ["software_engineering"], skills: ["Go", "Kafka", "built a distributed task queue", "implemented WAL recovery"] },
+      profile: { experienceYears: 0, level: "fresher", domains: ["software_engineering"], skills: ["Go", "Kafka", "built a distributed task queue"] },
       preferences: { targetMin: 0, targetMax: 2 },
-      jd: "Backend Engineer (New Grad) — build scalable APIs, work with databases, async processing, and cloud deployment. 0-2 years experience welcomed.",
+      title: "Backend Engineer (New Grad)",
+      jd: "Build scalable APIs, databases, async processing, cloud deployment. 0-2 years welcomed.",
     },
     output: {
       decision: "APPLY",
@@ -56,7 +67,8 @@ export const VERDICT_FEW_SHOT = [
     input: {
       profile: { experienceYears: 1, level: "1 year", domains: ["software_engineering"], skills: ["Java", "Spring", "SQL"] },
       preferences: { targetMin: 0, targetMax: 2 },
-      jd: "Software Engineer — 2 years of experience preferred, will consider strong candidates with less. REST APIs, SQL, cloud basics.",
+      title: "Software Engineer",
+      jd: "2 years preferred, will consider strong candidates with less. REST APIs, SQL, cloud basics.",
     },
     output: {
       decision: "APPLY",
@@ -65,7 +77,31 @@ export const VERDICT_FEW_SHOT = [
       gaps: ["Below the preferred experience mark (1 year vs 2 preferred)"],
     },
   },
+  {
+    input: {
+      profile: { experienceYears: 2, level: "1-2 years", domains: ["software_engineering"], skills: ["TypeScript", "Node.js"] },
+      preferences: { targetMin: 0, targetMax: 2 },
+      title: "ApplyOrNot — GitHub repository",
+      jd: "A Chrome extension that reads job descriptions. Installation instructions, contributing guide, license.",
+    },
+    output: { decision: "NO_JD", confidence: "high", reason: "", gaps: [] },
+  },
 ];
+
+function formatFewShot(examples) {
+  return examples
+    .map((ex, i) => `Example ${i + 1}:\nInput: ${JSON.stringify(ex.input)}\nOutput: ${JSON.stringify(ex.output)}`)
+    .join("\n\n");
+}
+
+// The few-shot examples are static and identical on every call, so they're appended directly to
+// the system prompt (part of `systemInstruction`) rather than the varying per-call user content.
+// This keeps the dynamic user turn down to just the real case, and puts the large fixed block in
+// the stable prefix, where providers with implicit prompt caching can reuse it across calls.
+export const VERDICT_SYSTEM_PROMPT_FULL = `${VERDICT_SYSTEM_PROMPT}
+
+Calibration examples:
+${formatFewShot(VERDICT_FEW_SHOT)}`;
 
 export const PROFILE_SYSTEM_PROMPT = `Extract a compact, structured candidate profile from this resume text. Work across all industries, not just software.
 

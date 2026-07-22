@@ -141,11 +141,16 @@
     </div>`;
   }
 
-  function footerHtml() {
+  function footerHtml(withReport) {
     return `<div class="aon-footer">
       <a href="#" data-aon-rate target="_blank" rel="noopener">★ Rate</a>
       <span class="aon-sep">·</span>
       <a href="#" data-aon-feedback target="_blank" rel="noopener">Feedback</a>
+      ${
+        withReport
+          ? `<span class="aon-sep">·</span><a href="#" data-aon-report target="_blank" rel="noopener">Report</a>`
+          : ""
+      }
     </div>`;
   }
 
@@ -217,21 +222,43 @@
     </div>`);
   }
 
+  // Empty until the Web Store assigns a real ID on first publish — see README "Before publishing".
+  const EXTENSION_ID = "";
+
+  let lastVerdictContext = null; // { pageUrl, decision, reason } — for the Report link
+
   function renderVerdict(v) {
-    const isApply = v.decision === "APPLY";
-    const isLowConfidence = v.confidence === "low";
+    // Normalize defensively: the model is asked for "APPLY"/"SKIP"/"NO_JD" but a stray lowercase
+    // or trailing space must never be misread. A strict === check previously fell through to
+    // SKIP on any mismatch — the worst outcome (a wrongly-skipped job). If it's none of the three,
+    // surface an error instead of guessing.
+    const decision = String(v?.decision || "").trim().toUpperCase();
+    if (decision === "NO_JD") {
+      renderNoJD();
+      return;
+    }
+    if (decision !== "APPLY" && decision !== "SKIP") {
+      renderError("The AI returned an unexpected response. Please try again.");
+      return;
+    }
+    const isApply = decision === "APPLY";
+    const isLowConfidence = String(v?.confidence || "").trim().toLowerCase() === "low";
     const title = isApply ? "Apply" : "Skip";
     const stateClass = isApply ? "aon-apply-top" : "aon-fail-top";
     const dotClass = isApply ? "aon-dot-green" : "aon-dot-red";
     const reasonPrefix = isLowConfidence ? "Borderline — " : "";
+    const reasonText = reasonPrefix + (v.reason || "");
+
+    lastVerdictContext = { pageUrl: location.href, decision, reason: v.reason || "" };
 
     const detailSections = v.gaps?.length ? `<div class="aon-section-title">Gaps</div>${chips(v.gaps, "warn")}` : "";
+    const modelLabel = v.model ? `<div class="aon-model-label">via ${escapeHtml(v.model)}</div>` : "";
 
     render(`<div class="aon-card ${isApply ? "aon-apply" : "aon-fail"}">
       ${headerBar(stateClass, title)}
       <div class="aon-verdict-row">
         <span class="aon-dot ${dotClass}"></span>
-        <span class="aon-verdict-reason">${escapeHtml(reasonPrefix + (v.reason || ""))}</span>
+        <span class="aon-verdict-reason">${escapeHtml(reasonText)}</span>
       </div>
       ${
         detailSections
@@ -242,15 +269,29 @@
              <div class="aon-details">${detailSections}</div>`
           : ""
       }
-      ${footerHtml()}
+      ${modelLabel}
+      ${footerHtml(true)}
     </div>`);
   }
 
   function wireFooterLinks(root) {
     const rate = root.querySelector("[data-aon-rate]");
     const feedback = root.querySelector("[data-aon-feedback]");
-    if (rate) rate.href = "https://chromewebstore.google.com/detail/YOUR_EXTENSION_ID/reviews";
-    if (feedback) feedback.href = "mailto:feedback@example.com?subject=ApplyOrNot%20feedback";
+    const report = root.querySelector("[data-aon-report]");
+    // The review URL 404s until the extension is actually published and assigned a real ID —
+    // hide the link entirely rather than pointing at a broken page.
+    if (rate) {
+      if (EXTENSION_ID) rate.href = `https://chromewebstore.google.com/detail/${EXTENSION_ID}/reviews`;
+      else rate.style.display = "none";
+    }
+    if (feedback) feedback.href = "mailto:ashrafahmed1232@gmail.com?subject=ApplyOrNot%20feedback";
+    if (report) {
+      const ctx = lastVerdictContext;
+      const body = ctx
+        ? `Page: ${ctx.pageUrl}\nVerdict: ${ctx.decision}\nReason: ${ctx.reason}\n\nWhat seems wrong:\n`
+        : "";
+      report.href = `mailto:ashrafahmed1232@gmail.com?subject=${encodeURIComponent("ApplyOrNot verdict report")}&body=${encodeURIComponent(body)}`;
+    }
   }
 
   async function getProfile() {
@@ -286,7 +327,7 @@
         return;
       }
       renderLoading();
-      const { text: jdText, tier } = await ScraperLib.scrapeFullJD();
+      const { text: jdText, title: jdTitle, tier } = await ScraperLib.scrapeFullJD();
       if (tier === "none" || !jdText) {
         renderNoJD();
         return;
@@ -299,9 +340,13 @@
         return;
       }
 
-      const verdict = await LLMLib.getVerdict(profile, preferences, jdText);
+      const verdict = await LLMLib.getVerdict(profile, preferences, jdTitle, jdText);
       renderVerdict(verdict);
-      await CacheLib.setCachedVerdict(jdText, verdict);
+      // NO_JD isn't cached — the page may simply not have finished rendering the JD yet, and a
+      // stale "no JD" shouldn't stick once real content loads (e.g. client-side-rendered listings).
+      if (String(verdict?.decision || "").trim().toUpperCase() !== "NO_JD") {
+        await CacheLib.setCachedVerdict(jdText, verdict);
+      }
     } catch (err) {
       console.error("[ApplyOrNot] verdict error", err);
       renderError(err.message || "Something went wrong. Try again in a moment.");

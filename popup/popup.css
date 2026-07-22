@@ -72,6 +72,7 @@ main { padding: 14px 16px; min-height: 210px; max-height: 440px; overflow-y: aut
   display: block; font-size: 11px; color: var(--sub); margin: 14px 0 6px;
   text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
 }
+.field-hint { text-transform: none; font-weight: 400; letter-spacing: normal; }
 select, input[type="text"] {
   width: 100%; padding: 9px 11px; border: 0.5px solid var(--line); border-radius: 10px;
   font-size: 13.5px; background: var(--card); color: var(--text); font-family: inherit;
