@@ -3,7 +3,7 @@
   "name": "ApplyOrNot — AI Recruiter for Job Listings",
   "short_name": "ApplyOrNot",
   "version": "1.0.0",
-  "description": "An AI recruiter in your browser: reads the job listing and your resume, then tells you plainly whether it's worth applying — with reasons, not a score.",
+  "description": "AI recruiter in your browser: reads any job listing against your resume and gives a plain APPLY/SKIP verdict, with reasons.",
   "author": "Ashraf Ahmed",
   "homepage_url": "https://github.com/AshrafAhmed9/ApplyOrNot",
   "icons": {
